@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 // Criptografia de campo e índice cego (etapa 3, seção 4.3).
 //
@@ -63,6 +63,15 @@ export function safeEqualHex(a: string, b: string): boolean {
   const ba = Buffer.from(a, "hex");
   const bb = Buffer.from(b, "hex");
   return ba.length === bb.length && timingSafeEqual(ba, bb);
+}
+
+// Compara dois textos (por exemplo, um segredo recebido na URL) em tempo
+// constante. Os dois passam antes por SHA-256 para terem o mesmo tamanho,
+// assim nem o comprimento do segredo vaza.
+export function safeEqualText(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a, "utf8").digest();
+  const hb = createHash("sha256").update(b, "utf8").digest();
+  return timingSafeEqual(ha, hb);
 }
 
 export function keyFromBase64(value: string): Buffer {
