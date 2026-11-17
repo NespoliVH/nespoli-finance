@@ -1,0 +1,55 @@
+{
+  "year": 2026,
+  "notes": "Ano-calendário 2026 (declaração entregue em 2027). Valores em reais. Cada bloco indica a fonte e se já foi conferido em publicação oficial (RN06).",
+  "deadlineMonth": 5,
+  "incomeTaxMonthly": {
+    "source": "Lei 15.191/2025, tabela progressiva mensal vigente em 2026. Conferido em fontes secundárias; falta conferir na página da Receita Federal.",
+    "verifiedOfficial": false,
+    "brackets": [
+      { "upTo": 2428.80, "rateBasisPoints": 0, "deduction": 0 },
+      { "upTo": 2826.65, "rateBasisPoints": 750, "deduction": 182.16 },
+      { "upTo": 3751.05, "rateBasisPoints": 1500, "deduction": 394.16 },
+      { "upTo": 4664.68, "rateBasisPoints": 2250, "deduction": 675.49 },
+      { "upTo": null, "rateBasisPoints": 2750, "deduction": 908.73 }
+    ]
+  },
+  "incomeTaxAnnual": {
+    "source": "Derivada da tabela mensal multiplicada por 12, prática usual da Receita. A tabela anual oficial da declaração de 2027 ainda precisa ser conferida.",
+    "verifiedOfficial": false,
+    "brackets": [
+      { "upTo": 29145.60, "rateBasisPoints": 0, "deduction": 0 },
+      { "upTo": 33919.80, "rateBasisPoints": 750, "deduction": 2185.92 },
+      { "upTo": 45012.60, "rateBasisPoints": 1500, "deduction": 4729.92 },
+      { "upTo": 55976.16, "rateBasisPoints": 2250, "deduction": 8105.88 },
+      { "upTo": null, "rateBasisPoints": 2750, "deduction": 10904.76 }
+    ]
+  },
+  "annualReducer": {
+    "source": "Lei 15.270/2025: redução do imposto anual para rendimentos tributáveis até R$ 88.200. Valores a conferir na publicação oficial.",
+    "verifiedOfficial": false,
+    "fullReductionUpTo": 60000.00,
+    "maxReduction": 2694.15,
+    "phaseOutUpTo": 88200.00,
+    "phaseOutConstant": 8429.73,
+    "phaseOutFactor": 0.095575
+  },
+  "inssMonthly": {
+    "source": "Portaria Interministerial MPS/MF nº 13/2026. Conferido em fontes secundárias; falta conferir no Diário Oficial.",
+    "verifiedOfficial": false,
+    "brackets": [
+      { "upTo": 1621.00, "rateBasisPoints": 750 },
+      { "upTo": 2902.84, "rateBasisPoints": 900 },
+      { "upTo": 4354.27, "rateBasisPoints": 1200 },
+      { "upTo": 8475.55, "rateBasisPoints": 1400 }
+    ]
+  },
+  "deductions": {
+    "source": "Valores das declarações recentes. A conferir na publicação oficial do ano.",
+    "verifiedOfficial": false,
+    "perDependentAnnual": 2275.08,
+    "educationLimitPerPersonAnnual": 3561.50,
+    "pensionLimitBasisPoints": 1200,
+    "simplifiedRateBasisPoints": 2000,
+    "simplifiedCapAnnual": 16754.34
+  }
+}
