@@ -1,0 +1,6 @@
+node_modules
+dist
+# Variáveis de ambiente com segredos nunca vão para o repositório (RNF01)
+.env
+# Código gerado pelo Prisma a partir do schema (recriado no npm install)
+/src/generated

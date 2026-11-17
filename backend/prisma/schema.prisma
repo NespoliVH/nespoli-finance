@@ -1,0 +1,289 @@
+// Esquema do banco de dados do Nespoli Finance.
+// Corresponde ao dicionário de dados da etapa 3 (modelagem de dados).
+// Convenções: nomes de tabelas e colunas em inglês e snake_case no banco,
+// valores em dinheiro como inteiros em centavos, datas e horas em UTC.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Enumerações ----------
+
+enum ConsentType {
+  bank_data_sharing
+  privacy_policy
+}
+
+enum ConsentAction {
+  granted
+  revoked
+}
+
+enum ConnectionStatus {
+  updating
+  active
+  login_error
+  consent_expired
+  revoked
+}
+
+enum AccountType {
+  checking
+  savings
+  credit_card
+}
+
+enum Direction {
+  debit // saída
+  credit // entrada
+}
+
+enum TransactionStatus {
+  pending
+  posted
+}
+
+enum CategorySource {
+  user_rule // regra criada pelo usuário (RN01, passo 1)
+  pluggy // categoria do Pluggy convertida (RN01, passo 2)
+  keyword // palavra-chave na descrição (RN01, passo 3)
+  default // nenhuma regra casou: Outros (RN01, passo 4)
+  manual // corrigida pelo usuário (RF16, RF17)
+}
+
+enum TaxableIncome {
+  no
+  suggested
+  confirmed
+}
+
+enum DeductibleType {
+  health
+  education
+  pension
+}
+
+// ---------- 3.1 Usuário ----------
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  appleUserId String   @unique @map("apple_user_id")
+  email       String?
+  name        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sessions      Session[]
+  devices       Device[]
+  consents      Consent[]
+  connections   Connection[]
+  accounts      Account[]
+  transactions  Transaction[]
+  categoryRules CategoryRule[]
+  alerts        Alert[]
+  taxProfile    TaxProfile?
+
+  @@map("users")
+}
+
+// ---------- 3.2 Sessão ----------
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ---------- 3.3 Aparelho ----------
+
+model Device {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  apnsToken         String   @unique @map("apns_token")
+  showAmountsInPush Boolean  @default(false) @map("show_amounts_in_push")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("devices")
+}
+
+// ---------- 3.4 Consentimento (somente inserções) ----------
+
+model Consent {
+  id           String        @id @default(uuid()) @db.Uuid
+  // Vira nulo quando a conta é excluída; a prova continua pelo subjectHash (seção 4.5).
+  userId       String?       @map("user_id") @db.Uuid
+  subjectHash  String        @map("subject_hash")
+  connectionId String?       @map("connection_id") @db.Uuid
+  type         ConsentType
+  action       ConsentAction
+  termsVersion String        @map("terms_version")
+  purpose      String
+  appVersion   String        @map("app_version")
+  occurredAt   DateTime      @default(now()) @map("occurred_at")
+
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  connection Connection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([subjectHash])
+  @@map("consents")
+}
+
+// ---------- 3.5 Conexão (item do Pluggy) ----------
+
+model Connection {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  pluggyItemIdEnc  Bytes            @map("pluggy_item_id_enc")
+  // Índice cego: HMAC-SHA256 do item, para localizar a conexão no webhook (seção 4.3).
+  pluggyItemIdHash String           @unique @map("pluggy_item_id_hash")
+  institutionName  String           @map("institution_name")
+  status           ConnectionStatus @default(updating)
+  consentExpiresAt DateTime?        @map("consent_expires_at")
+  lastSyncedAt     DateTime?        @map("last_synced_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts Account[]
+  consents Consent[]
+
+  @@index([userId])
+  @@map("connections")
+}
+
+// ---------- 3.6 Conta bancária ----------
+
+model Account {
+  id              String      @id @default(uuid()) @db.Uuid
+  connectionId    String      @map("connection_id") @db.Uuid
+  // Repetido de propósito para filtrar tudo por dono (seção 4.4).
+  userId          String      @map("user_id") @db.Uuid
+  pluggyAccountId String      @unique @map("pluggy_account_id")
+  type            AccountType
+  name            String
+  numberEnc       Bytes?      @map("number_enc")
+  numberLast4     String?     @map("number_last4")
+  balanceCents    BigInt      @map("balance_cents")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  connection   Connection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+// ---------- 3.7 Categoria (quatro linhas fixas) ----------
+
+model Category {
+  id           String @id // contas_fixas, comida, imprevistos, outros
+  name         String
+  displayOrder Int    @map("display_order")
+  icon         String
+
+  transactions Transaction[]
+  rules        CategoryRule[]
+  alerts       Alert[]
+
+  @@map("categories")
+}
+
+// ---------- 3.8 Transação ----------
+
+model Transaction {
+  id                  String            @id @default(uuid()) @db.Uuid
+  accountId           String            @map("account_id") @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  // Chave única que impede gravar a mesma transação duas vezes (RF12).
+  pluggyTransactionId String            @unique @map("pluggy_transaction_id")
+  date                DateTime          @db.Date
+  description         String
+  merchantKey         String?           @map("merchant_key")
+  direction           Direction
+  amountCents         BigInt            @map("amount_cents")
+  status              TransactionStatus @default(posted)
+  pluggyCategory      String?           @map("pluggy_category")
+  categoryId          String?           @map("category_id")
+  categorySource      CategorySource?   @map("category_source")
+  isInternalTransfer  Boolean           @default(false) @map("is_internal_transfer")
+  isCardBillPayment   Boolean           @default(false) @map("is_card_bill_payment")
+  taxableIncome       TaxableIncome     @default(no) @map("taxable_income")
+  deductibleType      DeductibleType?   @map("deductible_type")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  account  Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id])
+
+  @@index([userId, date])
+  @@index([accountId, date])
+  @@map("transactions")
+}
+
+// ---------- 3.9 Regra de categorização ----------
+
+model CategoryRule {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  merchantKey String   @map("merchant_key")
+  categoryId  String   @map("category_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, merchantKey])
+  @@map("category_rules")
+}
+
+// ---------- 3.10 Alerta ----------
+
+model Alert {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  categoryId     String    @map("category_id")
+  referenceMonth DateTime  @map("reference_month") @db.Date
+  currentCents   BigInt    @map("current_cents")
+  averageCents   BigInt    @map("average_cents")
+  increasePct    Decimal   @map("increase_pct") @db.Decimal(6, 2)
+  readAt         DateTime? @map("read_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  // O próprio banco garante no máximo um alerta por categoria por mês (RN04).
+  @@unique([userId, categoryId, referenceMonth])
+  @@map("alerts")
+}
+
+// ---------- 3.11 Perfil fiscal ----------
+
+model TaxProfile {
+  userId                  String   @id @map("user_id") @db.Uuid
+  grossMonthlySalaryCents BigInt   @map("gross_monthly_salary_cents")
+  withheldMonthlyCents    BigInt?  @map("withheld_monthly_cents")
+  dependentsCount         Int      @default(0) @map("dependents_count") @db.SmallInt
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tax_profiles")
+}
