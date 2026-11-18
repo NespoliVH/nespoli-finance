@@ -30,6 +30,8 @@ describe("categorize (RN01)", () => {
     expect(categorize(debit("XPTO LTDA", "Food and drinks"))?.categoryId).toBe("comida");
     expect(categorize(debit("XPTO LTDA", "Pharmacy"))?.categoryId).toBe("imprevistos");
     expect(categorize(debit("XPTO LTDA", "Electricity"))).toMatchObject({ categoryId: "contas_fixas", source: "pluggy" });
+    expect(categorize(debit("NETFLIX.COM", "Video streaming"))?.categoryId).toBe("contas_fixas");
+    expect(categorize(debit("SMARTFIT", "Gyms and fitness centers"))?.categoryId).toBe("contas_fixas");
   });
 
   it("passo 3: palavra-chave quando o Pluggy não ajuda", () => {

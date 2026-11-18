@@ -20,6 +20,18 @@ npm run db:migrate   # cria as tabelas no banco de desenvolvimento
 npm run dev          # servidor em http://localhost:3000
 ```
 
+## Pluggy
+
+Crie uma conta em dashboard.pluggy.ai, gere as credenciais da aplicação e
+preencha `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET` e `PLUGGY_WEBHOOK_SECRET`
+no `.env`. Sem elas o servidor sobe, mas as rotas de conexão respondem 503.
+Para receber webhooks, o backend precisa de um endereço público
+(`PUBLIC_BASE_URL`). No sandbox, use o conector "Pluggy Bank".
+
+`npm run sandbox:e2e` faz o caminho completo contra o sandbox real: cria um
+item de teste, registra a conexão, sincroniza duas vezes, revoga e apaga tudo.
+Usa o banco de teste. Atrás de um proxy, rode com `NODE_USE_ENV_PROXY=1`.
+
 ## Testes
 
 ```bash
@@ -37,5 +49,10 @@ npm run typecheck
 | `src/lib/crypto.ts` | Criptografia de campo (AES-256-GCM) e índice cego (HMAC) |
 | `src/db.ts` | Conexão com o banco |
 | `src/app.ts` | Montagem do servidor HTTP e suas rotas |
-| `src/server.ts` | Ponto de entrada que inicia o servidor |
+| `src/server.ts` | Ponto de entrada que inicia o servidor e a fila |
+| `src/rules/` | Regras de negócio: categorização, alertas e IR (módulo 2) |
+| `src/config/tax/` | Tabelas do IR e do INSS por ano |
+| `src/pluggy/` | Cliente da API do Pluggy e conversão dos dados (módulo 4) |
+| `src/connections/` | Rotas de conexão bancária, webhook e sincronização (módulo 4) |
+| `src/jobs/` | Fila de tarefas (pg-boss) e trabalhadores |
 | `test/` | Testes automáticos |
