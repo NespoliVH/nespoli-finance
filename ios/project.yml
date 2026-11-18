@@ -36,6 +36,15 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+  NespoliFinanceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [NespoliFinanceUITests]
+    dependencies:
+      - target: NespoliFinance
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   NespoliFinance:
     build:
@@ -44,3 +53,11 @@ schemes:
         NespoliFinanceTests: [test]
     test:
       targets: [NespoliFinanceTests]
+  # Só para gerar as capturas de tela do TCC (fluxo screenshots.yml).
+  NespoliFinanceScreenshots:
+    build:
+      targets:
+        NespoliFinance: all
+        NespoliFinanceUITests: [test]
+    test:
+      targets: [NespoliFinanceUITests]

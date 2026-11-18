@@ -1,0 +1,94 @@
+# Gera as capturas de tela do app (modo demonstração) para o texto do TCC.
+# Roda quando o app muda na main ou quando alguém pede, pela aba Actions
+# ("Run workflow"). As imagens ficam no artefato "capturas" de cada execução.
+name: Capturas de tela
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["ios/**", ".github/workflows/screenshots.yml"]
+  pull_request:
+    paths: [".github/workflows/screenshots.yml", "ios/NespoliFinanceUITests/**"]
+
+# Permissão para gravar as imagens no branch "capturas" do próprio repositório.
+permissions:
+  contents: write
+
+jobs:
+  capturas:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar o XcodeGen
+        run: brew install xcodegen
+      - name: Gerar o projeto
+        run: xcodegen generate
+      - name: Ligar um iPhone 16 no simulador
+        id: sim
+        run: |
+          ID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devs = json.load(sys.stdin)["devices"]
+          ios = sorted((k for k in devs if "iOS" in k), reverse=True)
+          phones = [d for r in ios for d in devs[r] if d["name"].startswith("iPhone")]
+          pick = next((d for d in phones if d["name"] == "iPhone 16"), None) or phones[0]
+          print(pick["udid"])
+          ')
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$ID" || true
+          xcrun simctl bootstatus "$ID" -b
+          # Barra de status limpa: 9:41, bateria cheia, sinal máximo.
+          xcrun simctl status_bar "$ID" override --time "9:41" --batteryState charged --batteryLevel 100 \
+            --cellularMode active --cellularBars 4 --wifiBars 3 --operatorName ""
+      - name: Percorrer as telas
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project NespoliFinance.xcodeproj \
+            -scheme NespoliFinanceScreenshots \
+            -destination "id=${{ steps.sim.outputs.id }}" \
+            -resultBundlePath capturas.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log | grep -E "error:|Test Case|Executed|\*\* (TEST|BUILD)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" build.log
+      - name: Extrair as imagens
+        run: |
+          mkdir -p bruto capturas
+          xcrun xcresulttool export attachments --path capturas.xcresult --output-path bruto
+          python3 - <<'PY'
+          import json, os, shutil
+          manifest = json.load(open("bruto/manifest.json"))
+          for test in manifest:
+              for a in test.get("attachments", []):
+                  name = a.get("suggestedHumanReadableName") or a["exportedFileName"]
+                  base = name.split("_")[0] if name[:2].isdigit() else os.path.splitext(name)[0]
+                  ext = os.path.splitext(a["exportedFileName"])[1] or ".png"
+                  shutil.copy(os.path.join("bruto", a["exportedFileName"]), os.path.join("capturas", base + ext))
+          print(sorted(os.listdir("capturas")))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capturas
+          path: ios/capturas
+      # Também guarda as imagens no branch "capturas" (só imagens, sem
+      # histórico), para baixar direto do GitHub sem abrir a execução.
+      - name: Publicar no branch capturas
+        run: |
+          cd capturas
+          git init -q -b capturas
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Capturas de tela geradas a partir de ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" capturas
+      - name: Guardar o log se falhar
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-capturas
+          path: ios/build.log
