@@ -96,6 +96,72 @@ describe("POST /connections/connect-token", () => {
     expect(res.json()).toEqual({ accessToken: "token-1" });
     expect(pluggy.tokens[0]).toEqual({ clientUserId: user.id, itemId: undefined });
   });
+
+  it("para uma conexão existente, devolve também o item, que o Connect usa no modo atualizar", async () => {
+    const user = await newUser();
+    await connect(user.id);
+    const conn = await prisma.connection.findFirstOrThrow({ where: { userId: user.id } });
+    const res = await app.inject({
+      method: "POST",
+      url: "/connections/connect-token",
+      headers: { "x-test-user": user.id },
+      payload: { connectionId: conn.id },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ accessToken: "token-1", updateItem: "item-1" });
+  });
+
+  it("não gera token para a conexão de outra pessoa", async () => {
+    const dono = await newUser();
+    await connect(dono.id);
+    const conn = await prisma.connection.findFirstOrThrow({ where: { userId: dono.id } });
+    const outro = await newUser();
+    const res = await app.inject({
+      method: "POST",
+      url: "/connections/connect-token",
+      headers: { "x-test-user": outro.id },
+      payload: { connectionId: conn.id },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("POST /connections/:id/reconnected", () => {
+  it("grava um novo consentimento, marca como atualizando e agenda a sincronização", async () => {
+    const user = await newUser();
+    await connect(user.id);
+    const conn = await prisma.connection.findFirstOrThrow({ where: { userId: user.id } });
+    await prisma.connection.update({ where: { id: conn.id }, data: { status: "login_error" } });
+    queue.jobs.length = 0;
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/connections/${conn.id}/reconnected`,
+      headers: { "x-test-user": user.id },
+      payload: { termsVersion: "1.1", appVersion: "0.2.0" },
+    });
+    expect(res.statusCode).toBe(202);
+    const consents = await prisma.consent.findMany({ where: { connectionId: conn.id }, orderBy: { occurredAt: "asc" } });
+    expect(consents.map((c) => [c.action, c.termsVersion])).toEqual([["granted", "1.0"], ["granted", "1.1"]]);
+    expect((await prisma.connection.findUniqueOrThrow({ where: { id: conn.id } })).status).toBe("updating");
+    expect(queue.jobs).toEqual([{ name: "sync-connection", data: { connectionId: conn.id } }]);
+  });
+
+  it("recusa corpo sem a versão dos termos e conexão de outra pessoa", async () => {
+    const user = await newUser();
+    await connect(user.id);
+    const conn = await prisma.connection.findFirstOrThrow({ where: { userId: user.id } });
+    const semTermos = await app.inject({
+      method: "POST", url: `/connections/${conn.id}/reconnected`, headers: { "x-test-user": user.id }, payload: {},
+    });
+    expect(semTermos.statusCode).toBe(400);
+    const outro = await newUser();
+    const alheia = await app.inject({
+      method: "POST", url: `/connections/${conn.id}/reconnected`, headers: { "x-test-user": outro.id },
+      payload: { termsVersion: "1.0", appVersion: "0.1.0" },
+    });
+    expect(alheia.statusCode).toBe(404);
+  });
 });
 
 describe("POST /connections", () => {

@@ -67,7 +67,7 @@ extension DemoFinanceRepository: AlertsRepository, TaxRepository, AccountReposit
     }
 
     func me() async throws -> Me {
-        Me(id: "demo", name: "Usuário de demonstração", email: nil, connectionsCount: 1, devicesCount: 0, hasTaxProfile: demoTaxProfile != nil)
+        Me(id: "demo", name: "Usuário de demonstração", email: nil, connectionsCount: demoConnections.count, devicesCount: 0, hasTaxProfile: demoTaxProfile != nil)
     }
 
     func consents() async throws -> [ConsentRecord] {
