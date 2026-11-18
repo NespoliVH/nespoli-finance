@@ -3,6 +3,7 @@ import { registerAlertRoutes } from "./alerts/routes.js";
 import { registerConnectionRoutes, type ConnectionDeps } from "./connections/routes.js";
 import type { PrismaClient } from "./db.js";
 import { nobody, type Authenticate } from "./http/auth.js";
+import { registerTaxRoutes } from "./tax/routes.js";
 import { registerTransactionRoutes } from "./transactions/routes.js";
 
 export interface AppDeps {
@@ -58,6 +59,7 @@ export function buildApp({ prisma, logger = true, authenticate = nobody, now, co
   if (connections) registerConnectionRoutes(app, { prisma, authenticate, now, ...connections });
   registerTransactionRoutes(app, { prisma, authenticate, now });
   registerAlertRoutes(app, { prisma, authenticate, now });
+  registerTaxRoutes(app, { prisma, authenticate, now });
 
   return app;
 }

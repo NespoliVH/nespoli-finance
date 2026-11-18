@@ -57,5 +57,6 @@ npm run typecheck
 | `src/jobs/` | Fila de tarefas (pg-boss) e trabalhadores |
 | `src/transactions/` | Resumo do mês, lista de transações e correção de categoria (módulo 6) |
 | `src/alerts/` | Avaliação dos alertas, notificação e tela de alertas (módulo 7) |
+| `src/tax/` | Perfil fiscal, marcações fiscais e estimativa do IR (módulo 8) |
 | `src/http/auth.ts` | Ponto de encaixe da autenticação (o login chega no módulo 3) |
 | `test/` | Testes automáticos |
