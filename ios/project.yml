@@ -1,0 +1,46 @@
+# Projeto do app iOS descrito em texto. O XcodeGen gera o .xcodeproj a partir
+# deste arquivo, na máquina de quem compila (aqui, o GitHub Actions). Assim o
+# projeto fica legível e revisável no Git, sem depender de abrir o Xcode.
+name: NespoliFinance
+options:
+  bundleIdPrefix: br.com.nespoli
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: pt-BR
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_LANGUAGE: pt-BR
+targets:
+  NespoliFinance:
+    type: application
+    platform: iOS
+    sources: [NespoliFinance]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: br.com.nespoli.finance
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Nespoli Finance
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        TARGETED_DEVICE_FAMILY: "1"
+  NespoliFinanceTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [NespoliFinanceTests]
+    dependencies:
+      - target: NespoliFinance
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  NespoliFinance:
+    build:
+      targets:
+        NespoliFinance: all
+        NespoliFinanceTests: [test]
+    test:
+      targets: [NespoliFinanceTests]
