@@ -3,6 +3,7 @@ import { decryptField, encryptField } from "../lib/crypto.js";
 import type { PluggyApi } from "../pluggy/client.js";
 import { connectionStatusFromItem, mapAccount, mapTransaction } from "../pluggy/mapping.js";
 import { categorize, type CategoryId } from "../rules/categorization.js";
+import { suggestTaxableIncome } from "../rules/income.js";
 
 // Sincronização de uma conexão (RF10 a RF12). Roda na fila, nunca dentro da
 // requisição do webhook, porque buscar 13 meses de transações pode demorar.
@@ -125,7 +126,9 @@ export async function syncConnection(deps: SyncDeps, connectionId: string): Prom
             categorySource: cat?.source ?? null,
             isInternalTransfer: t.isInternalTransfer,
             isCardBillPayment: t.isCardBillPayment,
-          };
+            // RF25: só sugere; quem confirma é o usuário.
+            taxableIncome: suggestTaxableIncome(t) ? "suggested" : "no",
+          } as const;
         }),
       });
       created += res.count;
