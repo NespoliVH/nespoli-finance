@@ -38,9 +38,18 @@ final class ViewModelTests: XCTestCase {
     }
 }
 
-struct FailingRepository: FinanceRepository {
+struct FailingRepository: AppRepository {
     let error: APIError
     func summary(month: String?) async throws -> MonthSummary { throw error }
     func transactions(month: String?, kind: TransactionKind, category: CategoryID?, cursor: String?) async throws -> TransactionPage { throw error }
     func correctCategory(transactionID: String, _ correction: CategoryCorrection) async throws -> CategoryCorrectionResult { throw error }
+    func alerts() async throws -> [SpendingAlert] { throw error }
+    func markRead(alertID: String) async throws { throw error }
+    func markAllRead() async throws { throw error }
+    func taxProfile() async throws -> TaxProfile? { throw error }
+    func saveTaxProfile(_ profile: TaxProfile) async throws { throw error }
+    func taxEstimate() async throws -> TaxEstimateResponse { throw error }
+    func me() async throws -> Me { throw error }
+    func consents() async throws -> [ConsentRecord] { throw error }
+    func deleteAccount() async throws { throw error }
 }
