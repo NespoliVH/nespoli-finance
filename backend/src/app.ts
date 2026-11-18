@@ -1,8 +1,10 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { registerAccountRoutes } from "./account/routes.js";
 import { registerAlertRoutes } from "./alerts/routes.js";
 import { registerConnectionRoutes, type ConnectionDeps } from "./connections/routes.js";
 import type { PrismaClient } from "./db.js";
 import { nobody, type Authenticate } from "./http/auth.js";
+import { registerEtag } from "./http/etag.js";
 import { registerTaxRoutes } from "./tax/routes.js";
 import { registerTransactionRoutes } from "./transactions/routes.js";
 
@@ -45,6 +47,8 @@ export function buildApp({ prisma, logger = true, authenticate = nobody, now, co
       : false,
   });
 
+  registerEtag(app);
+
   // Verificação de saúde: usada pela hospedagem para saber se o servidor
   // está no ar e se consegue falar com o banco.
   app.get("/health", async (_req, reply) => {
@@ -56,7 +60,10 @@ export function buildApp({ prisma, logger = true, authenticate = nobody, now, co
     }
   });
 
-  if (connections) registerConnectionRoutes(app, { prisma, authenticate, now, ...connections });
+  if (connections) {
+    registerConnectionRoutes(app, { prisma, authenticate, now, ...connections });
+    registerAccountRoutes(app, { prisma, authenticate, ...connections });
+  }
   registerTransactionRoutes(app, { prisma, authenticate, now });
   registerAlertRoutes(app, { prisma, authenticate, now });
   registerTaxRoutes(app, { prisma, authenticate, now });

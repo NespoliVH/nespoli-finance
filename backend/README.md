@@ -58,5 +58,7 @@ npm run typecheck
 | `src/transactions/` | Resumo do mês, lista de transações e correção de categoria (módulo 6) |
 | `src/alerts/` | Avaliação dos alertas, notificação e tela de alertas (módulo 7) |
 | `src/tax/` | Perfil fiscal, marcações fiscais e estimativa do IR (módulo 8) |
+| `src/account/` | Ajustes, consentimentos e exclusão da conta (módulo 9) |
+| `src/http/etag.ts` | Revalidação com ETag para o modo offline (módulo 9) |
 | `src/http/auth.ts` | Ponto de encaixe da autenticação (o login chega no módulo 3) |
 | `test/` | Testes automáticos |
