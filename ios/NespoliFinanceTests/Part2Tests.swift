@@ -65,8 +65,7 @@ final class Part2Tests: XCTestCase {
     func testBackend409MeansProfileRequired() async {
         let model = TaxViewModel(repository: FailingRepository(error: .server(status: 409, code: "profile_required")), isDemo: false)
         await model.load()
-        XCTAssertEqual(model.state, .failed(APIError.server(status: 409, code: "profile_required").message),
-                       "taxProfile falhou antes; só o 409 da estimativa vira pedido de perfil")
+        XCTAssertEqual(model.state, .needsProfile)
     }
 
     func testRefundHeadline() {
