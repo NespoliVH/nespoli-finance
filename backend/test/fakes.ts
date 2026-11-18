@@ -1,3 +1,4 @@
+import type { FastifyRequest } from "fastify";
 import type { JobName, JobPayloads, JobQueue } from "../src/jobs/queue.js";
 import type { PluggyAccount, PluggyApi, PluggyItem, PluggyTransaction } from "../src/pluggy/client.js";
 import { PluggyError } from "../src/pluggy/client.js";
@@ -58,3 +59,6 @@ export function pluggyTx(id: string, accountId: string, extra: Partial<PluggyTra
     ...extra,
   };
 }
+
+/** Nos testes, o usuário vem de um cabeçalho. No app real virá do login (módulo 3). */
+export const testAuth = async (req: FastifyRequest) => (req.headers["x-test-user"] as string | undefined) ?? null;

@@ -55,4 +55,6 @@ npm run typecheck
 | `src/pluggy/` | Cliente da API do Pluggy e conversão dos dados (módulo 4) |
 | `src/connections/` | Rotas de conexão bancária, webhook e sincronização (módulo 4) |
 | `src/jobs/` | Fila de tarefas (pg-boss) e trabalhadores |
+| `src/transactions/` | Resumo do mês, lista de transações e correção de categoria (módulo 6) |
+| `src/http/auth.ts` | Ponto de encaixe da autenticação (o login chega no módulo 3) |
 | `test/` | Testes automáticos |

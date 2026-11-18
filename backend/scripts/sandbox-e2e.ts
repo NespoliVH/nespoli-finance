@@ -32,7 +32,8 @@ const user = await prisma.user.create({ data: { appleUserId: `sandbox-${Date.now
 const app = buildApp({
   prisma,
   logger: false,
-  connections: { queue, fieldKey, blindKey, pluggy: { api: pluggy, webhookSecret: "x".repeat(32) }, authenticate: async () => user.id },
+  authenticate: async () => user.id,
+  connections: { queue, fieldKey, blindKey, pluggy: { api: pluggy, webhookSecret: "x".repeat(32) } },
 });
 let itemId: string | undefined;
 

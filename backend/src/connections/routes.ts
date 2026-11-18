@@ -1,16 +1,14 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import type { PrismaClient } from "../db.js";
 import type { JobQueue } from "../jobs/queue.js";
 import { Jobs } from "../jobs/queue.js";
 import { BlindIndexContext, blindIndex, decryptField, encryptField, safeEqualText } from "../lib/crypto.js";
+import { makeRequireUser, type Authenticate } from "../http/auth.js";
 import { PluggyError, type PluggyApi } from "../pluggy/client.js";
 import { connectionStatusFromItem } from "../pluggy/mapping.js";
 
 // Rotas de conexão bancária (RF06 a RF14) e o webhook do Pluggy.
-
-/** Descobre o usuário da requisição. O login com a Apple (módulo 3) fornece a implementação real. */
-export type Authenticate = (req: FastifyRequest) => Promise<string | null>;
 
 export interface ConnectionDeps {
   prisma: PrismaClient;
@@ -45,14 +43,7 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: ConnectionD
   const { prisma, queue, fieldKey, blindKey } = deps;
   const now = () => deps.now?.() ?? new Date();
 
-  async function requireUser(req: FastifyRequest, reply: FastifyReply): Promise<string | null> {
-    const userId = await deps.authenticate(req);
-    if (!userId) {
-      await reply.code(401).send({ error: "unauthorized" });
-      return null;
-    }
-    return userId;
-  }
+  const requireUser = makeRequireUser(deps.authenticate);
 
   function requirePluggy(reply: FastifyReply) {
     if (!deps.pluggy) {
@@ -62,7 +53,7 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: ConnectionD
     return deps.pluggy;
   }
 
-  // RF07: o app pede um token de curta duração para abrir o Pluggy Connect.
+  // RF08: o app pede um token de curta duração para abrir o Pluggy Connect.
   // As credenciais do Pluggy ficam só aqui no backend (RNF02).
   app.post("/connections/connect-token", async (req, reply) => {
     const userId = await requireUser(req, reply);
@@ -83,7 +74,7 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: ConnectionD
     return { accessToken };
   });
 
-  // RF08 e RF09: depois que o usuário conecta o banco no Pluggy Connect, o app
+  // RF06 e RF07: depois que o usuário conecta o banco no Pluggy Connect, o app
   // manda o id do item e a versão dos termos aceitos. A conexão e o registro
   // de consentimento são gravados juntos, numa única transação do banco.
   app.post("/connections", async (req, reply) => {
@@ -141,7 +132,7 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: ConnectionD
     return reply.code(201).send({ id: connection.id, institutionName: connection.institutionName, status: connection.status });
   });
 
-  // RF13: lista as conexões do usuário com as contas e o estado de cada uma.
+  // RF09: lista as conexões do usuário com as contas e o estado de cada uma.
   app.get("/connections", async (req, reply) => {
     const userId = await requireUser(req, reply);
     if (!userId) return;
@@ -166,7 +157,21 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: ConnectionD
     }));
   });
 
-  // RF14: revogar o consentimento. Apaga o item no Pluggy, grava a revogação
+  // RF11: atualização manual. Só agenda; se já houver uma sincronização
+  // esperando na fila para a conexão, a fila descarta o pedido repetido.
+  app.post("/connections/:id/sync", async (req, reply) => {
+    const userId = await requireUser(req, reply);
+    if (!userId) return;
+    if (!requirePluggy(reply)) return;
+    const params = idParams.safeParse(req.params);
+    if (!params.success) return reply.code(404).send({ error: "not_found" });
+    const conn = await prisma.connection.findFirst({ where: { id: params.data.id, userId } });
+    if (!conn) return reply.code(404).send({ error: "not_found" });
+    await queue.send(Jobs.syncConnection, { connectionId: conn.id });
+    return reply.code(202).send({ queued: true });
+  });
+
+  // RF13: desconectar um banco. Apaga o item no Pluggy, grava a revogação
   // e exclui a conexão; contas e transações saem junto (exclusão em cascata).
   app.delete("/connections/:id", async (req, reply) => {
     const userId = await requireUser(req, reply);
