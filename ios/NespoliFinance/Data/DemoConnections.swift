@@ -15,10 +15,9 @@ extension DemoFinanceRepository: ConnectionsRepository {
                     BankAccount(id: "acc-2", type: "credit_card", name: "Cartão de crédito", numberLast4: "9876", balanceCents: -112_040),
                 ]
             ),
-            // Um banco com o login vencido, para mostrar a reconexão na apresentação.
             BankConnection(
-                id: "conn-2", institutionName: "Banco exemplo 2", status: .loginError,
-                consentExpiresAt: now.addingTimeInterval(120 * 86_400), lastSyncedAt: now.addingTimeInterval(-6 * 86_400),
+                id: "conn-2", institutionName: "Banco exemplo 2", status: .active,
+                consentExpiresAt: now.addingTimeInterval(120 * 86_400), lastSyncedAt: now.addingTimeInterval(-2 * 3_600),
                 accounts: [
                     BankAccount(id: "acc-3", type: "savings", name: "Poupança", numberLast4: "1122", balanceCents: 1_050_000),
                 ]

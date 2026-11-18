@@ -79,16 +79,13 @@ final class ConnectionsTests: XCTestCase {
         XCTAssertNotNil(model.notice)
     }
 
-    func testDemoReconnectAndDisconnect() async {
+    func testDemoBanksStartUpToDateAndDisconnect() async {
         let model = ConnectionsViewModel(repository: DemoFinanceRepository(month: "2026-11"), appVersion: "0.1.0")
         await model.load()
-        let broken = model.connections.first { $0.status == .loginError }!
-        model.beginReconnect(broken)
-        await model.acceptConsent()
-        XCTAssertEqual(model.connections.first { $0.id == broken.id }?.status, .active)
-
-        await model.disconnect(broken)
-        XCTAssertFalse(model.connections.contains { $0.id == broken.id })
+        XCTAssertTrue(model.connections.allSatisfy { $0.status == .active })
+        let second = model.connections[1]
+        await model.disconnect(second)
+        XCTAssertFalse(model.connections.contains { $0.id == second.id })
     }
 
     // MARK: Tela, com Pluggy
