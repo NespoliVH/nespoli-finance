@@ -1,0 +1,57 @@
+# Compila o app iOS e roda os testes num Mac do GitHub, a cada push e pull
+# request que mexa em ios/. Ninguém do projeto precisa de Mac para isso.
+# Sem assinatura: compila para o simulador. A assinatura e o TestFlight
+# entram quando houver a conta paga do Apple Developer.
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar o XcodeGen
+        run: brew install xcodegen
+      - name: Gerar o projeto
+        run: xcodegen generate
+      - name: Escolher um simulador de iPhone
+        id: sim
+        run: |
+          xcodebuild -version
+          ID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devs = json.load(sys.stdin)["devices"]
+          ios = sorted((k for k in devs if "iOS" in k), reverse=True)
+          for runtime in ios:
+              for d in devs[runtime]:
+                  if d["name"].startswith("iPhone"):
+                      print(d["udid"]); sys.exit()
+          ')
+          echo "Simulador: $ID"
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+      - name: Compilar e testar
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project NespoliFinance.xcodeproj \
+            -scheme NespoliFinance \
+            -destination "id=${{ steps.sim.outputs.id }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log | grep -E "error:|warning: .*NespoliFinance|Test Case|Executed|\*\* (TEST|BUILD)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" build.log
+      - name: Guardar o log se falhar
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ios/build.log
