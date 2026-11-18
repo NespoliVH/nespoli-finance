@@ -52,4 +52,11 @@ struct FailingRepository: AppRepository {
     func me() async throws -> Me { throw error }
     func consents() async throws -> [ConsentRecord] { throw error }
     func deleteAccount() async throws { throw error }
+    var usesPluggyWidget: Bool { true }
+    func connections() async throws -> [BankConnection] { throw error }
+    func connectToken(connectionID: String?) async throws -> ConnectToken { throw error }
+    func createConnection(itemID: String, termsVersion: String, appVersion: String) async throws { throw error }
+    func reconnected(connectionID: String, termsVersion: String, appVersion: String) async throws { throw error }
+    func syncConnection(connectionID: String) async throws { throw error }
+    func deleteConnection(connectionID: String) async throws { throw error }
 }

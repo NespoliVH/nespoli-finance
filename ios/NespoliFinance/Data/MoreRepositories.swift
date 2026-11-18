@@ -23,7 +23,7 @@ protocol AccountRepository {
 }
 
 /// Tudo que o app usa, numa fonte só.
-typealias AppRepository = FinanceRepository & AlertsRepository & TaxRepository & AccountRepository
+typealias AppRepository = FinanceRepository & AlertsRepository & TaxRepository & AccountRepository & ConnectionsRepository
 
 private struct Empty: Encodable {}
 private struct DeleteConfirmation: Encodable { let confirm = "EXCLUIR" }

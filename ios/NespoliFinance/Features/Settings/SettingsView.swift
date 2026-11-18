@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Ajustes: conta, notificações, consentimentos e exclusão da conta.
+/// Ajustes: bancos, conta, notificações, consentimentos e exclusão da conta.
 struct SettingsView: View {
     @State var model: SettingsViewModel
+    let connections: ConnectionsViewModel
     /// Preferência do aparelho, não é segredo: pode ficar no UserDefaults.
     /// Vai para o backend junto com o token de notificação, quando houver push.
     @AppStorage("showAmountsInPush") private var showAmountsInPush = false
@@ -24,6 +25,17 @@ struct SettingsView: View {
                     Section {
                         Label("Conta excluída. Seus dados foram apagados do app e do serviço do banco.", systemImage: "checkmark.circle.fill")
                     }
+                }
+                Section {
+                    NavigationLink {
+                        ConnectionsView(model: connections)
+                    } label: {
+                        Label("Bancos conectados", systemImage: "building.columns.fill")
+                    }
+                } header: {
+                    Text("Bancos")
+                } footer: {
+                    Text("Conecte, atualize ou desconecte suas contas pelo Open Finance.")
                 }
                 if let me = model.me {
                     Section("Conta") {

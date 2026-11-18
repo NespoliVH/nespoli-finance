@@ -27,7 +27,8 @@ struct RootView: View {
                 .tabItem { Label("Alertas", systemImage: "bell.fill") }
             TaxView(model: TaxViewModel(repository: environment.repository, isDemo: environment.isDemo))
                 .tabItem { Label("IR", systemImage: "doc.text.fill") }
-            SettingsView(model: SettingsViewModel(repository: environment.repository, isDemo: environment.isDemo))
+            SettingsView(model: SettingsViewModel(repository: environment.repository, isDemo: environment.isDemo),
+                         connections: ConnectionsViewModel(repository: environment.repository))
                 .tabItem { Label("Ajustes", systemImage: "gearshape.fill") }
         }
     }

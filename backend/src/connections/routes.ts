@@ -29,6 +29,7 @@ const createBody = z.object({
   termsVersion: z.string().min(1).max(20),
   appVersion: z.string().min(1).max(20),
 });
+const reconnectedBody = createBody.omit({ itemId: true });
 const connectTokenBody = z.object({ connectionId: z.uuid().optional() }).optional();
 const idParams = z.object({ id: z.uuid() });
 
@@ -71,7 +72,9 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: ConnectionD
       itemId = decryptField(conn.pluggyItemIdEnc, fieldKey);
     }
     const accessToken = await pluggy.api.createConnectToken({ clientUserId: userId, webhookUrl: pluggy.webhookUrl, itemId });
-    return { accessToken };
+    // O Pluggy Connect só abre no modo "atualizar" se receber o id do item.
+    // Ele é do próprio usuário, então pode ir para o app só nesse caso.
+    return itemId ? { accessToken, updateItem: itemId } : { accessToken };
   });
 
   // RF06 e RF07: depois que o usuário conecta o banco no Pluggy Connect, o app
@@ -167,6 +170,39 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: ConnectionD
     if (!params.success) return reply.code(404).send({ error: "not_found" });
     const conn = await prisma.connection.findFirst({ where: { id: params.data.id, userId } });
     if (!conn) return reply.code(404).send({ error: "not_found" });
+    await queue.send(Jobs.syncConnection, { connectionId: conn.id });
+    return reply.code(202).send({ queued: true });
+  });
+
+  // RF12: depois de reconectar um banco (login corrigido ou consentimento
+  // renovado no Pluggy Connect), o app avisa aqui. Grava um novo registro de
+  // consentimento, porque o usuário aceitou de novo, e agenda a sincronização.
+  app.post("/connections/:id/reconnected", async (req, reply) => {
+    const userId = await requireUser(req, reply);
+    if (!userId) return;
+    if (!requirePluggy(reply)) return;
+    const params = idParams.safeParse(req.params);
+    if (!params.success) return reply.code(404).send({ error: "not_found" });
+    const body = reconnectedBody.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const conn = await prisma.connection.findFirst({ where: { id: params.data.id, userId } });
+    if (!conn) return reply.code(404).send({ error: "not_found" });
+
+    await prisma.$transaction([
+      prisma.consent.create({
+        data: {
+          userId,
+          subjectHash: blindIndex(userId, blindKey, BlindIndexContext.consentSubject),
+          connectionId: conn.id,
+          type: "bank_data_sharing",
+          action: "granted",
+          termsVersion: body.data.termsVersion,
+          purpose: BANK_DATA_PURPOSE,
+          appVersion: body.data.appVersion,
+        },
+      }),
+      prisma.connection.update({ where: { id: conn.id }, data: { status: "updating" } }),
+    ]);
     await queue.send(Jobs.syncConnection, { connectionId: conn.id });
     return reply.code(202).send({ queued: true });
   });

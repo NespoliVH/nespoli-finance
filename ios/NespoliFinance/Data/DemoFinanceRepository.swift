@@ -17,6 +17,7 @@ actor DemoFinanceRepository: FinanceRepository {
     private var rules: [String: CategoryID] = [:]
     var demoAlerts: [SpendingAlert]
     var demoTaxProfile: TaxProfile?
+    var demoConnections: [BankConnection]
     let month: String
 
     init(month: String = DemoFinanceRepository.currentMonth()) {
@@ -24,6 +25,7 @@ actor DemoFinanceRepository: FinanceRepository {
         self.items = DemoFinanceRepository.sample(month: month)
         self.demoAlerts = DemoFinanceRepository.sampleAlerts(month: month)
         self.demoTaxProfile = TaxProfile(grossMonthlySalaryCents: 1_000_000, withheldMonthlyCents: nil, dependentsCount: 0)
+        self.demoConnections = DemoFinanceRepository.sampleConnections()
     }
 
     func resetDemo() {
@@ -31,6 +33,7 @@ actor DemoFinanceRepository: FinanceRepository {
         rules = [:]
         demoAlerts = Self.sampleAlerts(month: month)
         demoTaxProfile = nil
+        demoConnections = []
     }
 
     static func sampleAlerts(month: String) -> [SpendingAlert] {
