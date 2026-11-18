@@ -44,11 +44,11 @@ final class Part2Tests: XCTestCase {
         let model = TaxViewModel(repository: DemoFinanceRepository(month: "2026-11"), isDemo: true)
         await model.load()
         guard case .loaded(let r) = model.state else { return XCTFail("não carregou") }
-        XCTAssertEqual(r.estimate.taxDueCents, 1_748_780)
+        XCTAssertEqual(r.estimate.taxDueCents, 1_724_434)
         XCTAssertEqual(r.monthsUntilDeadline, 7) // novembro a maio
-        XCTAssertEqual(r.monthlyReserveCents, 249_826) // 17.487,80 ÷ 7, para cima
-        XCTAssertFalse(r.tableVerifiedOfficial)
-        XCTAssertEqual(TaxViewModel.headline(r.estimate), "Você deve pagar cerca de R$ 17.487,80 na declaração.")
+        XCTAssertEqual(r.monthlyReserveCents, 246_348) // 17.244,34 ÷ 7, para cima
+        XCTAssertTrue(r.tableVerifiedOfficial)
+        XCTAssertEqual(TaxViewModel.headline(r.estimate), "Você deve pagar cerca de R$ 17.244,34 na declaração.")
     }
 
     func testWithoutProfileAsksForIt() async {

@@ -10,7 +10,7 @@ import {
   type TaxInput,
 } from "../../src/rules/tax.js";
 
-// Os valores esperados foram conferidos à mão com as tabelas de 2026 do arquivo de configuração.
+// Os valores esperados foram conferidos à mão com as tabelas oficiais de 2026 (Receita Federal).
 const config = loadTaxConfig(2026);
 const base: Omit<TaxInput, "grossMonthlySalaryCents"> = {
   dependentsCount: 0,
@@ -32,8 +32,8 @@ describe("INSS mensal", () => {
 });
 
 describe("tabela progressiva anual", () => {
-  it("R$ 50.000 cai na faixa de 22,5%: 11.250,00 − 8.105,88 = 3.144,12", () => {
-    expect(progressiveTax(5_000_000, config.incomeTaxAnnual.brackets)).toBe(314_412);
+  it("R$ 50.000 cai na faixa de 22,5%: 11.250,00 − 8.105,85 = 3.144,15", () => {
+    expect(progressiveTax(5_000_000, config.incomeTaxAnnual.brackets)).toBe(314_415);
   });
 
   it("base zero ou isenta não gera imposto", () => {
@@ -67,8 +67,9 @@ describe("estimateIncomeTax (RN05)", () => {
   it("escolhe a modalidade com menor imposto: sem deduções, a simplificada", () => {
     const r = estimateIncomeTax({ ...base, grossMonthlySalaryCents: 1_000_000 }, config);
     expect(r.regime).toBe("simplified");
-    expect(r.taxDueCents).toBe(1_748_780);
-    expect(r.alternative).toEqual({ regime: "complete", taxDueCents: 1_883_451 });
+    // 120.000 − 17.640 (teto do simplificado) = 102.360; × 27,5% − 10.904,66 = 17.244,34
+    expect(r.taxDueCents).toBe(1_724_434);
+    expect(r.alternative).toEqual({ regime: "complete", taxDueCents: 1_883_461 });
   });
 
   it("com dependentes e despesas de saúde, a completa passa a valer mais a pena", () => {
@@ -77,14 +78,14 @@ describe("estimateIncomeTax (RN05)", () => {
       config,
     );
     expect(r.regime).toBe("complete");
-    expect(r.taxDueCents).toBe(1_483_322);
+    expect(r.taxDueCents).toBe(1_483_332);
     expect(r.taxDueCents).toBeLessThan(r.alternative.taxDueCents);
   });
 
   it("desconta o IR retido na fonte: diferença negativa é restituição", () => {
     const r = estimateIncomeTax({ ...base, grossMonthlySalaryCents: 1_000_000, withheldMonthlyCents: 150_000 }, config);
     expect(r.withheldCents).toBe(1_800_000);
-    expect(r.differenceCents).toBe(1_748_780 - 1_800_000);
+    expect(r.differenceCents).toBe(1_724_434 - 1_800_000);
     expect(monthlyReserve(r, new Date("2026-11-17T12:00:00Z"), config)).toBe(0);
   });
 
@@ -103,7 +104,8 @@ describe("estimateIncomeTax (RN05)", () => {
   it("os passos mostrados ao usuário fecham com o resultado", () => {
     const r = estimateIncomeTax({ ...base, grossMonthlySalaryCents: 700_000 }, config);
     expect(r.steps.at(-1)?.amountCents).toBe(r.differenceCents);
-    expect(r.taxDueCents).toBe(718_637);
+    // 84.000 − 16.800 (20%) = 67.200; × 27,5% − 10.904,66 = 7.575,34; − redutor 401,43
+    expect(r.taxDueCents).toBe(717_391);
   });
 });
 
@@ -118,6 +120,6 @@ describe("reserva mensal", () => {
 
   it("divide o valor a pagar arredondando para cima", () => {
     const r = estimateIncomeTax({ ...base, grossMonthlySalaryCents: 700_000 }, config);
-    expect(monthlyReserve(r, new Date("2026-11-17T12:00:00Z"), config)).toBe(Math.ceil(718_637 / 7));
+    expect(monthlyReserve(r, new Date("2026-11-17T12:00:00Z"), config)).toBe(Math.ceil(717_391 / 7));
   });
 });
