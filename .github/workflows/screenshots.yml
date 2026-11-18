@@ -11,6 +11,10 @@ on:
   pull_request:
     paths: [".github/workflows/screenshots.yml", "ios/NespoliFinanceUITests/**"]
 
+# Permissão para gravar as imagens no branch "capturas" do próprio repositório.
+permissions:
+  contents: write
+
 jobs:
   capturas:
     runs-on: macos-15
@@ -71,6 +75,17 @@ jobs:
         with:
           name: capturas
           path: ios/capturas
+      # Também guarda as imagens no branch "capturas" (só imagens, sem
+      # histórico), para baixar direto do GitHub sem abrir a execução.
+      - name: Publicar no branch capturas
+        run: |
+          cd capturas
+          git init -q -b capturas
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Capturas de tela geradas a partir de ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" capturas
       - name: Guardar o log se falhar
         if: failure()
         uses: actions/upload-artifact@v4
