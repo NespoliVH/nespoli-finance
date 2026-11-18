@@ -30,7 +30,7 @@ struct SummaryView: View {
             Button { Task { await model.goToPreviousMonth() } } label: { Image(systemName: "chevron.left") }
                 .accessibilityLabel("Mês anterior")
             Spacer()
-            Text(model.monthTitle.capitalized).font(.headline)
+            Text(model.monthTitle.prefix(1).uppercased() + model.monthTitle.dropFirst()).font(.headline)
             Spacer()
             Button { Task { await model.goToNextMonth() } } label: { Image(systemName: "chevron.right") }
                 .disabled(!model.canGoForward)

@@ -21,9 +21,10 @@ final class ScreenshotTests: XCTestCase {
         tab("Transações")
         wait(app.navigationBars["Transações"])
         shot("02-transacoes")
-        let firstRow = app.collectionViews.cells.element(boundBy: 0)
-        if firstRow.waitForExistence(timeout: 5) {
-            firstRow.tap()
+        // Toca numa compra para abrir a troca de categoria.
+        let purchase = app.staticTexts["NETFLIX.COM"]
+        if purchase.waitForExistence(timeout: 5) {
+            purchase.tap()
             if app.navigationBars["Trocar categoria"].waitForExistence(timeout: 5) {
                 shot("03-trocar-categoria")
                 tapIfExists(app.buttons["Cancelar"])
