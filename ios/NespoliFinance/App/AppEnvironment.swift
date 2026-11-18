@@ -6,7 +6,7 @@ import Foundation
 /// modo demonstração. O login com a Apple (módulo 3) é o que vai gravar a
 /// sessão e ligar o modo real.
 struct AppEnvironment {
-    let repository: FinanceRepository
+    let repository: AppRepository
     let isDemo: Bool
 
     /// Endereço do backend em produção. Fica vazio até a hospedagem existir.

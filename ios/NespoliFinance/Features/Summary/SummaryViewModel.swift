@@ -49,17 +49,17 @@ final class SummaryViewModel {
         return s.categories.filter { $0.totalCents > 0 }
     }
 
-    static func shift(_ month: String, by delta: Int) -> String {
+    nonisolated static func shift(_ month: String, by delta: Int) -> String {
         let parts = month.split(separator: "-").compactMap { Int($0) }
         guard parts.count == 2 else { return month }
         let index = parts[0] * 12 + (parts[1] - 1) + delta
         return String(format: "%04d-%02d", index / 12, index % 12 + 1)
     }
 
-    static let monthNames = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+    nonisolated static let monthNames = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
                              "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
-    static func title(_ month: String) -> String {
+    nonisolated static func title(_ month: String) -> String {
         let parts = month.split(separator: "-").compactMap { Int($0) }
         guard parts.count == 2, (1...12).contains(parts[1]) else { return month }
         return "\(monthNames[parts[1] - 1]) de \(parts[0])"

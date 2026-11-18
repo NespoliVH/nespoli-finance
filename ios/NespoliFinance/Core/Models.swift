@@ -109,3 +109,97 @@ enum TransactionKind: String, CaseIterable, Identifiable {
         }
     }
 }
+
+// MARK: - Alertas (módulo 7)
+
+struct CategoryRef: Codable, Equatable {
+    let id: CategoryID
+    let name: String
+    let icon: String
+}
+
+struct SpendingAlert: Codable, Identifiable, Equatable {
+    let id: String
+    let month: String
+    let category: CategoryRef
+    let currentCents: Cents
+    let averageCents: Cents
+    let increasePct: Double
+    var read: Bool
+    let createdAt: Date
+}
+
+struct AlertList: Codable, Equatable {
+    let items: [SpendingAlert]
+}
+
+// MARK: - IR (módulo 8)
+
+struct TaxProfile: Codable, Equatable {
+    var grossMonthlySalaryCents: Cents
+    var withheldMonthlyCents: Cents?
+    var dependentsCount: Int
+}
+
+struct TaxStep: Codable, Equatable, Identifiable {
+    let label: String
+    let amountCents: Cents
+    var id: String { label }
+}
+
+struct TaxEstimate: Codable, Equatable {
+    struct Alternative: Codable, Equatable {
+        let regime: String
+        let taxDueCents: Cents
+    }
+    let year: Int
+    let taxableIncomeCents: Cents
+    let regime: String // "complete" ou "simplified"
+    let taxDueCents: Cents
+    let withheldCents: Cents
+    let differenceCents: Cents
+    let steps: [TaxStep]
+    let alternative: Alternative
+
+    var regimeName: String { regime == "complete" ? "completa (deduções reais)" : "simplificada (desconto de 20%)" }
+}
+
+struct TaxEstimateResponse: Codable, Equatable {
+    let year: Int
+    let disclaimer: String
+    let tableVerifiedOfficial: Bool
+    let estimate: TaxEstimate
+    let monthlyReserveCents: Cents
+    let monthsUntilDeadline: Int
+}
+
+// MARK: - Conta e privacidade (módulo 9)
+
+struct Me: Codable, Equatable {
+    let id: String
+    let name: String?
+    let email: String?
+    let connectionsCount: Int
+    let devicesCount: Int
+    let hasTaxProfile: Bool
+}
+
+struct ConsentRecord: Codable, Identifiable, Equatable {
+    let id: String
+    let type: String // "bank_data_sharing" ou "privacy_policy"
+    let action: String // "granted" ou "revoked"
+    let purpose: String
+    let termsVersion: String
+    let occurredAt: Date
+    let institutionName: String?
+
+    var title: String {
+        let what = type == "privacy_policy" ? "Política de privacidade" : "Dados do banco\(institutionName.map { " (\($0))" } ?? "")"
+        return what
+    }
+    var actionLabel: String { action == "granted" ? "Concedido" : "Revogado" }
+}
+
+struct ConsentList: Codable, Equatable {
+    let items: [ConsentRecord]
+}

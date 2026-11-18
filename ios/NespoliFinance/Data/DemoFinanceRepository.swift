@@ -15,11 +15,32 @@ actor DemoFinanceRepository: FinanceRepository {
 
     private var items: [Item]
     private var rules: [String: CategoryID] = [:]
+    var demoAlerts: [SpendingAlert]
+    var demoTaxProfile: TaxProfile?
     let month: String
 
     init(month: String = DemoFinanceRepository.currentMonth()) {
         self.month = month
         self.items = DemoFinanceRepository.sample(month: month)
+        self.demoAlerts = DemoFinanceRepository.sampleAlerts(month: month)
+        self.demoTaxProfile = TaxProfile(grossMonthlySalaryCents: 1_000_000, withheldMonthlyCents: nil, dependentsCount: 0)
+    }
+
+    func resetDemo() {
+        items = Self.sample(month: month)
+        rules = [:]
+        demoAlerts = Self.sampleAlerts(month: month)
+        demoTaxProfile = nil
+    }
+
+    static func sampleAlerts(month: String) -> [SpendingAlert] {
+        [
+            SpendingAlert(id: "a1", month: month, category: CategoryRef(id: .comida, name: "Comida", icon: CategoryID.comida.icon),
+                          currentCents: 98_000, averageCents: 69_000, increasePct: 42.03, read: false, createdAt: Date().addingTimeInterval(-7_200)),
+            SpendingAlert(id: "a0", month: SummaryViewModel.shift(month, by: -1),
+                          category: CategoryRef(id: .imprevistos, name: "Imprevistos", icon: CategoryID.imprevistos.icon),
+                          currentCents: 60_000, averageCents: 40_000, increasePct: 50, read: true, createdAt: Date().addingTimeInterval(-2_600_000)),
+        ]
     }
 
     static func currentMonth(_ now: Date = Date()) -> String {

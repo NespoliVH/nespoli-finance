@@ -88,6 +88,21 @@ final class APIClient {
         return try Self.decoder.decode(T.self, from: data)
     }
 
+    /// Pedido sem resposta útil no corpo (204), como marcar alerta como lido ou excluir a conta.
+    func sendNoContent<Body: Encodable>(_ method: String, _ path: String, body: Body?) async throws {
+        var request = URLRequest(url: makeURL(path, query: [:]))
+        request.httpMethod = method
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(body)
+        }
+        let (data, http) = try await send(request)
+        try check(http, data)
+    }
+
+    /// Ao sair ou excluir a conta, a cópia offline também vai embora.
+    func clearCache() { cache.clear() }
+
     private func makeURL(_ path: String, query: [String: String?]) -> URL {
         var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         let items = query.compactMap { key, value in value.map { URLQueryItem(name: key, value: $0) } }

@@ -11,7 +11,7 @@ struct NespoliFinanceApp: App {
     }
 }
 
-/// As abas do app. Alertas e IR entram nas próximas partes.
+/// As cinco abas do app (etapa 4).
 struct RootView: View {
     let environment: AppEnvironment
 
@@ -23,7 +23,11 @@ struct RootView: View {
                 TransactionsView(model: TransactionsViewModel(repository: environment.repository, month: DemoFinanceRepository.currentMonth()))
             }
             .tabItem { Label("Transações", systemImage: "list.bullet") }
-            SettingsView(isDemo: environment.isDemo)
+            AlertsView(model: AlertsViewModel(repository: environment.repository))
+                .tabItem { Label("Alertas", systemImage: "bell.fill") }
+            TaxView(model: TaxViewModel(repository: environment.repository, isDemo: environment.isDemo))
+                .tabItem { Label("IR", systemImage: "doc.text.fill") }
+            SettingsView(model: SettingsViewModel(repository: environment.repository, isDemo: environment.isDemo))
                 .tabItem { Label("Ajustes", systemImage: "gearshape.fill") }
         }
     }

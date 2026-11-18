@@ -69,7 +69,7 @@ final class TransactionsViewModel {
 
     func dismissNotice() { notice = nil }
 
-    static func notice(for r: CategoryCorrectionResult) -> String {
+    nonisolated static func notice(for r: CategoryCorrectionResult) -> String {
         let name = r.transaction.categoryId?.name ?? "a nova categoria"
         guard r.ruleCreated else { return "Categoria trocada para \(name)." }
         switch r.recategorizedCount {
@@ -80,7 +80,7 @@ final class TransactionsViewModel {
     }
 
     /// "2026-11-05" → "05/11".
-    static func shortDate(_ date: String) -> String {
+    nonisolated static func shortDate(_ date: String) -> String {
         let p = date.split(separator: "-")
         guard p.count == 3 else { return date }
         return "\(p[2])/\(p[1])"
