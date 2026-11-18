@@ -53,9 +53,9 @@ export function mapAccount(a: PluggyAccount): AccountData {
   };
 }
 
-// Nomes das categorias do Pluggy que marcam o que não é gasto (RF19).
-// Vieram da página de categorias da documentação do Pluggy; conferir com
-// GET /categories quando houver credenciais.
+// Categorias do Pluggy que marcam o que não é gasto (RF19). Conferidas em
+// GET /categories no sandbox em 18/11/2026: 04000000 "Same person transfer"
+// (e as filhas CASH, PIX e TED) e 05100000 "Credit card payment".
 const INTERNAL_TRANSFER = /^same person transfer/i;
 const CARD_BILL_PAYMENT = /credit card payment/i;
 
@@ -97,9 +97,11 @@ export function mapTransaction(t: PluggyTransaction): TransactionData | null {
     pluggyAccountId: t.accountId,
     date: brazilDate(t.date),
     description: t.description.trim(),
-    // O sinal do valor muda de banco para banco; o campo type do Pluggy diz
-    // a direção de forma consistente (DEBIT = saiu dinheiro).
-    direction: t.type === "DEBIT" ? "debit" : "credit",
+    // A direção vem do sinal do valor (negativo = saiu dinheiro). No sandbox,
+    // o campo type do Pluggy marca as compras do cartão como CREDIT, com valor
+    // negativo; o sinal é o que se mantém igual na conta e no cartão.
+    // Conferido no sandbox em 18/11/2026; conferir de novo com dados reais.
+    direction: t.amount < 0 ? "debit" : "credit",
     amountCents,
     status: t.status === "PENDING" ? "pending" : "posted",
     pluggyCategory: category,

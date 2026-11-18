@@ -33,15 +33,15 @@ describe("contas", () => {
 });
 
 describe("transações", () => {
-  it("valor sempre positivo, direção pelo campo type", () => {
+  it("valor sempre positivo, direção pelo sinal", () => {
     expect(mapTransaction(pluggyTx("t1", "a1"))).toMatchObject({ amountCents: 12_345, direction: "debit", status: "posted" });
     expect(mapTransaction(pluggyTx("t2", "a1", { amount: 50, type: "CREDIT", status: "PENDING" }))).toMatchObject({
       amountCents: 5_000,
       direction: "credit",
       status: "pending",
     });
-    // alguns bancos mandam gasto de cartão com valor positivo; o type continua dizendo DEBIT
-    expect(mapTransaction(pluggyTx("t3", "a1", { amount: 80 }))?.direction).toBe("debit");
+    // como o sandbox manda uma compra no cartão: type CREDIT, valor negativo
+    expect(mapTransaction(pluggyTx("t3", "a1", { amount: -55.9, type: "CREDIT", category: "Video streaming" }))?.direction).toBe("debit");
   });
 
   it("marca transferência entre contas próprias e pagamento de fatura (RF19)", () => {

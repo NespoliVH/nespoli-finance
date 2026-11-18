@@ -47,11 +47,12 @@ export function normalizeMerchant(description: string): string {
 
 // Conversão das categorias do Pluggy. Os nomes do Pluggy vêm em inglês;
 // a correspondência é por trecho de texto, então "Food and drinks" e
-// "Eating out" caem em Comida. A lista oficial de categorias do Pluggy será
-// conferida no módulo 4, quando a integração for feita.
+// "Eating out" caem em Comida. Assinaturas (streaming) e academia contam como
+// Contas fixas, porque se repetem todo mês. Nomes conferidos no sandbox do
+// Pluggy em 18/11/2026 (130 categorias em GET /categories).
 const PLUGGY_MAP: ReadonlyArray<[RegExp, CategoryId]> = [
   [/food|restaurant|eating out|groceries|supermarket|bakery|delivery/i, "comida"],
-  [/rent|housing|utilit|electricity|water|gas bill|internet|telecom|phone|education|school|insurance|condominium|subscription/i, "contas_fixas"],
+  [/rent|housing|utilit|electricity|water|gas bill|internet|telecom|phone|education|school|insurance|condominium|subscription|streaming|gym|fitness/i, "contas_fixas"],
   [/health|pharmac|drugstore|hospital|medical|doctor|vehicle maintenance|car repair|fine/i, "imprevistos"],
 ];
 

@@ -28,6 +28,10 @@ no `.env`. Sem elas o servidor sobe, mas as rotas de conexão respondem 503.
 Para receber webhooks, o backend precisa de um endereço público
 (`PUBLIC_BASE_URL`). No sandbox, use o conector "Pluggy Bank".
 
+`npm run sandbox:e2e` faz o caminho completo contra o sandbox real: cria um
+item de teste, registra a conexão, sincroniza duas vezes, revoga e apaga tudo.
+Usa o banco de teste. Atrás de um proxy, rode com `NODE_USE_ENV_PROXY=1`.
+
 ## Testes
 
 ```bash
