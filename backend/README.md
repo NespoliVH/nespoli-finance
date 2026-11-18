@@ -32,6 +32,15 @@ Para receber webhooks, o backend precisa de um endereço público
 item de teste, registra a conexão, sincroniza duas vezes, revoga e apaga tudo.
 Usa o banco de teste. Atrás de um proxy, rode com `NODE_USE_ENV_PROXY=1`.
 
+## Hospedagem
+
+O `Dockerfile` monta a imagem do servidor para qualquer hospedagem que rode
+contêineres. Ao iniciar, `npm run start:prod` aplica as migrações pendentes
+(`prisma migrate deploy`) e sobe o servidor. As variáveis de ambiente
+(`DATABASE_URL`, as duas chaves, as três do Pluggy e `PUBLIC_BASE_URL`) são
+configuradas no painel da hospedagem. A hospedagem pode usar `GET /health`
+para saber se o servidor está no ar e falando com o banco.
+
 ## Testes
 
 ```bash

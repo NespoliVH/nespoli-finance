@@ -5,6 +5,7 @@
     "test": "vitest run",
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
+    "start:prod": "prisma migrate deploy && tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "sandbox:e2e": "tsx scripts/sandbox-e2e.ts",
     "db:migrate": "prisma migrate dev",
