@@ -22,7 +22,7 @@ final class ScreenshotTests: XCTestCase {
         wait(app.navigationBars["Transações"])
         shot("02-transacoes")
         // Toca numa compra para abrir a troca de categoria.
-        let purchase = app.staticTexts["NETFLIX.COM"]
+        let purchase = app.buttons.matching(NSPredicate(format: "label CONTAINS 'NETFLIX'")).firstMatch
         if purchase.waitForExistence(timeout: 5) {
             purchase.tap()
             if app.navigationBars["Trocar categoria"].waitForExistence(timeout: 5) {
