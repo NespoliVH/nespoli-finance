@@ -34,23 +34,23 @@ extension DemoFinanceRepository: AlertsRepository, TaxRepository, AccountReposit
             year: Int(month.prefix(4)) ?? 2026,
             taxableIncomeCents: 12_000_000,
             regime: "simplified",
-            taxDueCents: 1_748_780,
+            taxDueCents: 1_724_434,
             withheldCents: 0,
-            differenceCents: 1_748_780,
+            differenceCents: 1_724_434,
             steps: [
                 TaxStep(label: "Rendimentos tributáveis no ano", amountCents: 12_000_000),
-                TaxStep(label: "(−) Desconto simplificado", amountCents: 1_675_434),
-                TaxStep(label: "(=) Base de cálculo", amountCents: 10_324_566),
-                TaxStep(label: "Imposto pela tabela, com o redutor", amountCents: 1_748_780),
+                TaxStep(label: "(−) Desconto simplificado", amountCents: 1_764_000),
+                TaxStep(label: "(=) Base de cálculo", amountCents: 10_236_000),
+                TaxStep(label: "Imposto pela tabela, com o redutor", amountCents: 1_724_434),
                 TaxStep(label: "(−) Retido na fonte no ano", amountCents: 0),
-                TaxStep(label: "(=) Diferença", amountCents: 1_748_780),
+                TaxStep(label: "(=) Diferença", amountCents: 1_724_434),
             ],
-            alternative: .init(regime: "complete", taxDueCents: 1_883_451)
+            alternative: .init(regime: "complete", taxDueCents: 1_883_461)
         )
         return TaxEstimateResponse(
             year: estimate.year,
             disclaimer: "Estimativa aproximada, feita com os dados do app. Não é cálculo oficial e não substitui a declaração à Receita Federal.",
-            tableVerifiedOfficial: false,
+            tableVerifiedOfficial: true,
             estimate: estimate,
             monthlyReserveCents: (estimate.differenceCents + months - 1) / months,
             monthsUntilDeadline: months

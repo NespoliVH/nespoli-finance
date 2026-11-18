@@ -106,19 +106,19 @@ describe("estimativa do IR (RF27, RN05)", () => {
     expect(r).toMatchObject({
       year: 2026,
       disclaimer: TAX_DISCLAIMER,
-      tableVerifiedOfficial: false, // as tabelas de 2026 ainda não foram conferidas na fonte oficial (RN06)
-      estimate: { regime: "simplified", taxDueCents: 1_748_780, differenceCents: 1_748_780 },
+      tableVerifiedOfficial: true, // tabelas de 2026 conferidas na Receita Federal e no INSS em 18/11/2026 (RN06)
+      estimate: { regime: "simplified", taxDueCents: 1_724_434, differenceCents: 1_724_434 },
       monthsUntilDeadline: 7, // novembro a maio
-      monthlyReserveCents: 249_826, // 17.487,80 ÷ 7, arredondado para cima
+      monthlyReserveCents: 246_348, // 17.487,80 ÷ 7, arredondado para cima
     });
-    expect(r.estimate.steps.at(-1)).toEqual({ label: "(=) Diferença", amountCents: 1_748_780 });
+    expect(r.estimate.steps.at(-1)).toEqual({ label: "(=) Diferença", amountCents: 1_724_434 });
   });
 
   it("usa as despesas dedutíveis marcadas e os dependentes (completo)", async () => {
     const { h } = await setup([{ description: "HOSPITAL", cents: 1_000_000, direction: "debit", deductibleType: "health" }]);
     await putProfile(h, { grossMonthlySalaryCents: 1_000_000, dependentsCount: 2 });
     const r = await estimate(h);
-    expect(r.estimate).toMatchObject({ regime: "complete", taxDueCents: 1_483_322 });
+    expect(r.estimate).toMatchObject({ regime: "complete", taxDueCents: 1_483_332 });
     expect(r.inputs.healthCents).toBe(1_000_000);
   });
 
