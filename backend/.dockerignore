@@ -1,0 +1,8 @@
+node_modules
+.env
+.env.*
+test
+scripts
+coverage
+dist
+src/generated
