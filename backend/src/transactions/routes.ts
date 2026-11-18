@@ -5,13 +5,10 @@ import type { Prisma } from "../generated/prisma/client.js";
 import { makeRequireUser, type Authenticate } from "../http/auth.js";
 import { isSpending } from "../rules/categorization.js";
 import { currentMonth, dateOnly, MONTH_PATTERN, monthRange } from "./period.js";
+import { spendingWhere } from "./spending.js";
 
-// Resumo do mês e lista de transações (RF16 a RF22, RN07).
-//
-// "Gasto" tem uma definição só, usada no resumo e no filtro da lista: saída
-// de dinheiro que não é transferência entre contas próprias nem pagamento de
-// fatura (RF19). O pagamento da fatura ficaria contado duas vezes: uma em
-// cada compra no cartão e outra quando a conta corrente paga a fatura.
+// Resumo do mês e lista de transações (RF16 a RF22, RN07). A definição de
+// gasto (RF19) fica em spending.ts, compartilhada com os alertas.
 
 export interface TransactionDeps {
   prisma: PrismaClient;
@@ -20,12 +17,6 @@ export interface TransactionDeps {
 }
 
 const CATEGORY_IDS = ["contas_fixas", "comida", "imprevistos", "outros"] as const;
-
-const spendingWhere = {
-  direction: "debit",
-  isInternalTransfer: false,
-  isCardBillPayment: false,
-} satisfies Prisma.TransactionWhereInput;
 
 const summaryQuery = z.object({ month: z.string().regex(MONTH_PATTERN).optional() });
 

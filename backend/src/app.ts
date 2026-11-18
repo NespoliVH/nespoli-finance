@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { registerAlertRoutes } from "./alerts/routes.js";
 import { registerConnectionRoutes, type ConnectionDeps } from "./connections/routes.js";
 import type { PrismaClient } from "./db.js";
 import { nobody, type Authenticate } from "./http/auth.js";
@@ -56,6 +57,7 @@ export function buildApp({ prisma, logger = true, authenticate = nobody, now, co
 
   if (connections) registerConnectionRoutes(app, { prisma, authenticate, now, ...connections });
   registerTransactionRoutes(app, { prisma, authenticate, now });
+  registerAlertRoutes(app, { prisma, authenticate, now });
 
   return app;
 }
