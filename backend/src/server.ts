@@ -3,6 +3,7 @@ import { createPrisma } from "./db.js";
 import { buildApp } from "./app.js";
 import { PgBossQueue } from "./jobs/queue.js";
 import { buildHandlers } from "./jobs/workers.js";
+import { nobody } from "./http/auth.js";
 import { keyFromBase64 } from "./lib/crypto.js";
 import { PluggyClient } from "./pluggy/client.js";
 
@@ -36,10 +37,10 @@ const app = buildApp({
     fieldKey,
     blindKey,
     pluggy,
-    // O login com a Apple chega no módulo 3. Até lá nenhuma requisição é
-    // reconhecida como de um usuário, e as rotas de conexão respondem 401.
-    authenticate: async () => null,
   },
+  // O login com a Apple chega no módulo 3. Até lá nenhuma requisição é
+  // reconhecida como de um usuário, e as rotas de usuário respondem 401.
+  authenticate: nobody,
 });
 if (!pluggy) app.log.warn("Pluggy não configurado: as rotas de conexão respondem 503");
 

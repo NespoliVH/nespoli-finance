@@ -3,7 +3,7 @@ import { buildApp } from "../../src/app.js";
 import { syncConnection } from "../../src/connections/sync.js";
 import { buildHandlers } from "../../src/jobs/workers.js";
 import { BlindIndexContext, blindIndex, decryptField } from "../../src/lib/crypto.js";
-import { FakePluggy, MemoryQueue, pluggyTx } from "../fakes.js";
+import { FakePluggy, MemoryQueue, pluggyTx, testAuth } from "../fakes.js";
 import { testKey, testPrisma } from "../helpers.js";
 
 // Fluxo completo da conexão bancária sobre o banco real, com o Pluggy e a
@@ -23,14 +23,13 @@ function makeApp() {
   return buildApp({
     prisma,
     logger: false,
+    now: () => now,
+    authenticate: testAuth,
     connections: {
       queue,
       fieldKey,
       blindKey,
-      now: () => now,
       pluggy: { api: pluggy, webhookSecret: SECRET, webhookUrl: `https://api.example/webhooks/pluggy/${SECRET}` },
-      // Nos testes, o usuário vem de um cabeçalho. No app real virá do login (módulo 3).
-      authenticate: async (req) => (req.headers["x-test-user"] as string | undefined) ?? null,
     },
   });
 }
@@ -80,7 +79,8 @@ describe("autenticação e configuração", () => {
     const semPluggy = buildApp({
       prisma,
       logger: false,
-      connections: { queue, fieldKey, blindKey, pluggy: null, authenticate: async () => "u" },
+      authenticate: async () => "u",
+      connections: { queue, fieldKey, blindKey, pluggy: null },
     });
     const res = await semPluggy.inject({ method: "POST", url: "/connections/connect-token" });
     expect(res.statusCode).toBe(503);
@@ -201,6 +201,21 @@ describe("sincronização", () => {
     const result = await syncConnection(deps(), conn.id);
     expect(result).toMatchObject({ status: "updating", created: 0 });
     expect(await prisma.transaction.count()).toBe(0);
+  });
+});
+
+describe("POST /connections/:id/sync (RF11)", () => {
+  it("agenda a atualização só da conexão do próprio usuário", async () => {
+    const dona = await newUser();
+    const outro = await newUser();
+    await connect(dona.id);
+    const conn = await prisma.connection.findFirstOrThrow();
+    queue.jobs = [];
+    const alheio = await app.inject({ method: "POST", url: `/connections/${conn.id}/sync`, headers: { "x-test-user": outro.id } });
+    expect(alheio.statusCode).toBe(404);
+    const res = await app.inject({ method: "POST", url: `/connections/${conn.id}/sync`, headers: { "x-test-user": dona.id } });
+    expect(res.statusCode).toBe(202);
+    expect(queue.jobs).toEqual([{ name: "sync-connection", data: { connectionId: conn.id } }]);
   });
 });
 

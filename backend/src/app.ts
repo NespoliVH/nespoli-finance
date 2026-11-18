@@ -1,11 +1,16 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { registerConnectionRoutes, type ConnectionDeps } from "./connections/routes.js";
 import type { PrismaClient } from "./db.js";
+import { nobody, type Authenticate } from "./http/auth.js";
+import { registerTransactionRoutes } from "./transactions/routes.js";
 
 export interface AppDeps {
   prisma: PrismaClient;
   logger?: boolean;
-  connections?: Omit<ConnectionDeps, "prisma">;
+  /** Quem é o usuário da requisição. Sem isso, nenhuma rota de usuário aceita chamadas. */
+  authenticate?: Authenticate;
+  now?: () => Date;
+  connections?: Omit<ConnectionDeps, "prisma" | "authenticate" | "now">;
 }
 
 /** Tira o segredo do webhook da URL antes de ela ir para o log. */
@@ -15,7 +20,7 @@ export function redactUrl(url: string): string {
 
 // Monta a aplicação sem iniciar o servidor. Separar "montar" de "iniciar"
 // permite que os testes criem a aplicação e façam requisições sem abrir porta.
-export function buildApp({ prisma, logger = true, connections }: AppDeps): FastifyInstance {
+export function buildApp({ prisma, logger = true, authenticate = nobody, now, connections }: AppDeps): FastifyInstance {
   const app = Fastify({
     logger: logger
       ? {
@@ -49,7 +54,8 @@ export function buildApp({ prisma, logger = true, connections }: AppDeps): Fasti
     }
   });
 
-  if (connections) registerConnectionRoutes(app, { prisma, ...connections });
+  if (connections) registerConnectionRoutes(app, { prisma, authenticate, now, ...connections });
+  registerTransactionRoutes(app, { prisma, authenticate, now });
 
   return app;
 }
