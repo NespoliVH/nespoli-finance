@@ -202,6 +202,60 @@ describe("PATCH /transactions/:id/category", () => {
     expect(nova).toMatchObject({ categoryId: "contas_fixas", categorySource: "user_rule" });
   });
 
+  it("a regra também recategoriza as compras antigas do estabelecimento, menos as corrigidas à mão (RF18)", async () => {
+    const { h, user } = await scenario([
+      { id: "ifood-nov", date: "2026-11-10", amountCents: 4_000, merchantKey: "ifood" },
+      { id: "ifood-nov-2", date: "2026-11-02", amountCents: 3_000, merchantKey: "ifood" },
+      { id: "ifood-out", date: "2026-10-15", amountCents: 2_500, merchantKey: "ifood", categoryId: null },
+      { id: "ifood-set", date: "2026-09-20", amountCents: 1_500, merchantKey: "ifood" },
+      { id: "padaria", date: "2026-11-05", amountCents: 900 },
+    ]);
+    // a de setembro o usuário já tinha corrigido uma a uma
+    const setembro = await prisma.transaction.findFirstOrThrow({ where: { userId: user.id, description: "IFOOD-SET" } });
+    await prisma.transaction.update({ where: { id: setembro.id }, data: { categoryId: "imprevistos", categorySource: "manual" } });
+
+    const id = await firstId(h);
+    const res = await app.inject({ method: "PATCH", url: `/transactions/${id}/category`, headers: h, payload: { categoryId: "comida", applyToFuture: true } });
+    expect(res.json()).toMatchObject({ ruleCreated: true, recategorizedCount: 2 });
+
+    const rows = await prisma.transaction.findMany({ where: { userId: user.id } });
+    const by = (d: string) => rows.find((r) => r.description === d);
+    expect(by("IFOOD-NOV")).toMatchObject({ categoryId: "comida", categorySource: "manual" });
+    expect(by("IFOOD-NOV-2")).toMatchObject({ categoryId: "comida", categorySource: "user_rule" });
+    expect(by("IFOOD-OUT")).toMatchObject({ categoryId: "comida", categorySource: "user_rule" });
+    expect(by("IFOOD-SET")).toMatchObject({ categoryId: "imprevistos", categorySource: "manual" });
+    expect(by("PADARIA")).toMatchObject({ categoryId: "outros" });
+  });
+
+  it("com includePast desligado, a regra só vale para as próximas (RF18)", async () => {
+    const { h, user } = await scenario([
+      { id: "ifood-nov", date: "2026-11-10", amountCents: 4_000, merchantKey: "ifood" },
+      { id: "ifood-out", date: "2026-10-15", amountCents: 2_500, merchantKey: "ifood" },
+    ]);
+    const id = await firstId(h);
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/transactions/${id}/category`,
+      headers: h,
+      payload: { categoryId: "comida", applyToFuture: true, includePast: false },
+    });
+    expect(res.json()).toMatchObject({ ruleCreated: true, recategorizedCount: 0 });
+    const antiga = await prisma.transaction.findFirstOrThrow({ where: { userId: user.id, description: "IFOOD-OUT" } });
+    expect(antiga).toMatchObject({ categoryId: "outros", categorySource: "pluggy" });
+  });
+
+  it("sem applyToFuture, nem cria regra nem mexe nas antigas (RF18)", async () => {
+    const { h, user } = await scenario([
+      { id: "ifood-nov", date: "2026-11-10", amountCents: 4_000, merchantKey: "ifood" },
+      { id: "ifood-out", date: "2026-10-15", amountCents: 2_500, merchantKey: "ifood" },
+    ]);
+    const id = await firstId(h);
+    const res = await app.inject({ method: "PATCH", url: `/transactions/${id}/category`, headers: h, payload: { categoryId: "comida" } });
+    expect(res.json()).toMatchObject({ ruleCreated: false, recategorizedCount: 0 });
+    const antiga = await prisma.transaction.findFirstOrThrow({ where: { userId: user.id, description: "IFOOD-OUT" } });
+    expect(antiga.categoryId).toBe("outros");
+  });
+
   it("recusa entrada de dinheiro e transação de outra pessoa", async () => {
     const { h } = await scenario([{ id: "salario", date: "2026-11-05", amountCents: 500_000, direction: "credit" }]);
     const id = await firstId(h);

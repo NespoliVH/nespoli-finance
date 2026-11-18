@@ -42,6 +42,9 @@ const categoryBody = z.object({
   categoryId: z.enum(CATEGORY_IDS),
   // RF18: vem desligado no app, para a correção pontual ser o padrão (etapa 4).
   applyToFuture: z.boolean().default(false),
+  // Só vale com applyToFuture. O usuário escolhe se a regra também corrige as
+  // compras antigas do estabelecimento; vem ligado, que foi o pedido da pessoa.
+  includePast: z.boolean().default(true),
 });
 
 // Cursor da paginação: data e id da última transação da página, em base64url.
@@ -173,6 +176,9 @@ export function registerTransactionRoutes(app: FastifyInstance, deps: Transactio
   // RF16 a RF18: o usuário corrige a categoria. A correção fica marcada como
   // manual e nenhuma sincronização a desfaz (RF17). Com applyToFuture, cria
   // ou troca a regra do estabelecimento, que vale para as próximas compras.
+  // Com includePast (padrão), a regra também recategoriza as compras antigas
+  // do mesmo estabelecimento. As que o usuário corrigiu uma a uma ficam como
+  // estão: uma correção manual vale mais que a regra (RF17).
   app.patch("/transactions/:id/category", async (req, reply) => {
     const userId = await requireUser(req, reply);
     if (!userId) return;
@@ -180,7 +186,7 @@ export function registerTransactionRoutes(app: FastifyInstance, deps: Transactio
     if (!params.success) return reply.code(404).send({ error: "not_found" });
     const body = categoryBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
-    const { categoryId, applyToFuture } = body.data;
+    const { categoryId, applyToFuture, includePast } = body.data;
 
     // Filtrar pelo dono na própria busca: transação de outra pessoa responde
     // 404, igual a uma que não existe.
@@ -190,7 +196,8 @@ export function registerTransactionRoutes(app: FastifyInstance, deps: Transactio
     if (!isSpending(tx)) return reply.code(422).send({ error: "not_spending" });
 
     const createRule = applyToFuture && tx.merchantKey !== null;
-    const [updated] = await prisma.$transaction([
+    const recategorizePast = createRule && includePast;
+    const [updated, ...rest] = await prisma.$transaction([
       prisma.transaction.update({
         where: { id: tx.id },
         data: { categoryId, categorySource: "manual" },
@@ -205,7 +212,23 @@ export function registerTransactionRoutes(app: FastifyInstance, deps: Transactio
             }),
           ]
         : []),
+      ...(recategorizePast
+        ? [
+            prisma.transaction.updateMany({
+              where: {
+                userId,
+                merchantKey: tx.merchantKey!,
+                id: { not: tx.id },
+                ...spendingWhere,
+                OR: [{ categorySource: null }, { categorySource: { not: "manual" } }],
+              },
+              data: { categoryId, categorySource: "user_rule" },
+            }),
+          ]
+        : []),
     ]);
-    return { transaction: serializeTransaction(updated), ruleCreated: createRule };
+    const past = rest.at(-1);
+    const recategorizedCount = recategorizePast && past && "count" in past ? past.count : 0;
+    return { transaction: serializeTransaction(updated as TransactionWithAccount), ruleCreated: createRule, recategorizedCount };
   });
 }
