@@ -28,7 +28,7 @@ const pluggy =
     : null;
 
 const queue = await PgBossQueue.start(env.DATABASE_URL);
-if (pluggy) await queue.work(buildHandlers({ prisma, pluggy: pluggy.api, fieldKey }));
+if (pluggy) await queue.work(buildHandlers({ prisma, pluggy: pluggy.api, fieldKey, push: null }));
 
 const app = buildApp({
   prisma,
