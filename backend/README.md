@@ -41,6 +41,12 @@ contêineres. Ao iniciar, `npm run start:prod` aplica as migrações pendentes
 configuradas no painel da hospedagem. A hospedagem pode usar `GET /health`
 para saber se o servidor está no ar e falando com o banco.
 
+No Render, o arquivo `render.yaml` na raiz do repositório descreve o servidor e
+o banco: em New > Blueprint, escolha o repositório. As chaves de criptografia
+são geradas pelo Render; as do Pluggy e o `PUBLIC_BASE_URL` são preenchidos no
+painel. Atenção: as chaves de criptografia não podem ser trocadas depois que
+houver dados, ou os campos já gravados deixam de abrir.
+
 ## Testes
 
 ```bash
