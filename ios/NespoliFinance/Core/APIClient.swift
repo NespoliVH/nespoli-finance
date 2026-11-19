@@ -27,17 +27,25 @@ enum APIError: Error, Equatable {
 /// Toda chamada leva o token de acesso do Keychain. As leituras usam ETag:
 /// o cliente guarda a última resposta de cada endereço e manda a etiqueta
 /// dela. Se o backend responder 304 (nada mudou), usa a cópia guardada.
+///
+/// O token de acesso dura 15 minutos. Quando o backend responde 401, o
+/// cliente pede uma renovação (refresher) e repete a chamada uma única vez,
+/// sem o usuário perceber. Se a renovação for recusada, o erro sobe como
+/// .unauthorized e o app volta para a tela de login.
 final class APIClient {
     let baseURL: URL
     private let session: URLSession
     private let tokenProvider: () -> String?
+    private let refresher: (() async -> RefreshOutcome)?
     private let cache: ResponseCache
 
-    init(baseURL: URL, session: URLSession = .shared, cache: ResponseCache = ResponseCache(), tokenProvider: @escaping () -> String?) {
+    init(baseURL: URL, session: URLSession = .shared, cache: ResponseCache = ResponseCache(),
+         tokenProvider: @escaping () -> String?, refresher: (() async -> RefreshOutcome)? = nil) {
         self.baseURL = baseURL
         self.session = session
         self.cache = cache
         self.tokenProvider = tokenProvider
+        self.refresher = refresher
     }
 
     static let decoder: JSONDecoder = {
@@ -111,6 +119,20 @@ final class APIClient {
     }
 
     private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, http) = try await perform(request)
+        guard http.statusCode == 401, let refresher else { return (data, http) }
+        switch await refresher() {
+        case .refreshed:
+            // Repete uma vez só, já com o token novo. Um segundo 401 vira erro.
+            return try await perform(request)
+        case .rejected:
+            return (data, http)
+        case .unavailable:
+            throw APIError.offline
+        }
+    }
+
+    private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         var request = request
         if let token = tokenProvider() { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         request.timeoutInterval = 30

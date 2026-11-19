@@ -27,6 +27,13 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_KEY_NSFaceIDUsageDescription: O Face ID protege seus dados financeiros ao abrir o app.
+    # Permissão de "Iniciar sessão com a Apple". Só vale de fato quando o app
+    # for assinado com a conta Apple Developer; no CI a assinatura fica desligada.
+    entitlements:
+      path: NespoliFinance/NespoliFinance.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
   NespoliFinanceTests:
     type: bundle.unit-test
     platform: iOS
