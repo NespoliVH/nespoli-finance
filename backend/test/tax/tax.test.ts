@@ -18,7 +18,8 @@ type Tx = {
   date?: string;
   pluggyCategory?: string;
   taxableIncome?: "no" | "suggested" | "confirmed";
-  deductibleType?: "health" | "education" | "pension";
+  deductibleType?: "health" | "education" | "pension" | "business";
+  incomeSource?: "individual" | "company";
 };
 
 async function setup(txs: Tx[] = []) {
@@ -50,6 +51,7 @@ async function setup(txs: Tx[] = []) {
         categoryId: t.direction === "debit" ? "imprevistos" : null,
         taxableIncome: t.taxableIncome ?? "no",
         deductibleType: t.deductibleType ?? null,
+        incomeSource: t.incomeSource ?? null,
       },
     });
     ids.push(row.id);
@@ -81,7 +83,17 @@ describe("perfil fiscal", () => {
       grossMonthlySalaryCents: 700_000,
       withheldMonthlyCents: 50_000,
       dependentsCount: 1,
+      incomeType: "salaried",
+      inssPlan: "standard",
     });
+  });
+
+  it("grava o tipo de renda e o plano de INSS do autônomo", async () => {
+    const { h } = await setup();
+    await putProfile(h, { grossMonthlySalaryCents: 0, incomeType: "self_employed", inssPlan: "simplified" });
+    const p = (await app.inject({ method: "GET", url: "/tax/profile", headers: h })).json();
+    expect(p).toMatchObject({ incomeType: "self_employed", inssPlan: "simplified" });
+    expect((await putProfile(h, { grossMonthlySalaryCents: 0, incomeType: "freelancer" })).statusCode).toBe(400);
   });
 
   it("recusa valor quebrado ou negativo", async () => {
@@ -155,7 +167,55 @@ describe("estimativa do IR (RF27, RN05)", () => {
   });
 });
 
+describe("autônomo: carnê-leão e ajuste anual (seção 4.8.1)", () => {
+  it("calcula o carnê-leão de cada mês e abate no ajuste anual", async () => {
+    const { h } = await setup([
+      // Março: R$ 6.000 de pessoas físicas e R$ 500 de livro-caixa.
+      { description: "PIX RECEBIDO CLIENTE", cents: 600_000, direction: "credit", date: "2026-03-10", taxableIncome: "confirmed" },
+      { description: "ALUGUEL SALA", cents: 50_000, direction: "debit", date: "2026-03-20", deductibleType: "business" },
+      // Maio: R$ 2.000 de uma empresa, que já retém o imposto.
+      { description: "TED EMPRESA X", cents: 200_000, direction: "credit", date: "2026-05-10", taxableIncome: "confirmed", incomeSource: "company" },
+    ]);
+    await putProfile(h, { grossMonthlySalaryCents: 0, incomeType: "self_employed", inssPlan: "standard" });
+    const body = await estimate(h);
+
+    expect(body.incomeType).toBe("self_employed");
+    expect(body.carneLeao.darfCode).toBe("0190");
+    expect(body.carneLeao.months).toHaveLength(11); // janeiro a novembro
+    const march = body.carneLeao.months[2];
+    // INSS 20% de 6.000 = 1.200; base 6.000 − 1.200 − 500 = 4.300; tabela 292,01; redução 179,75.
+    expect(march).toMatchObject({ month: "2026-03", inssPaidCents: 120_000, bookDeductionCents: 50_000, baseCents: 430_000, taxCents: 11_226, dueDate: "2026-04-30" });
+    const may = body.carneLeao.months[4];
+    expect(may).toMatchObject({ fromCompaniesCents: 200_000, inssWithheldCents: 22_000, taxCents: 0, dueDate: null });
+    expect(body.carneLeao.totalSoFarCents).toBe(11_226);
+    expect(body.estimate.carneLeaoPaidCents).toBe(body.carneLeao.projectedAnnualCents);
+    expect(body.inputs.otherIncomeSoFarCents).toBe(0);
+    expect(body.inputs.bookExpensesCents).toBe(50_000);
+  });
+
+  it("assalariado não tem carnê-leão e a entrada extra continua como outro rendimento", async () => {
+    const { h } = await setup([{ description: "PIX RECEBIDO", cents: 110_000, direction: "credit", date: "2026-03-10", taxableIncome: "confirmed" }]);
+    await putProfile(h, { grossMonthlySalaryCents: 500_000 });
+    const body = await estimate(h);
+    expect(body.carneLeao).toBeNull();
+    expect(body.inputs.otherIncomeSoFarCents).toBe(110_000);
+  });
+});
+
 describe("marcações fiscais (RF25, RF26)", () => {
+  it("marca de quem veio o rendimento e a despesa de livro-caixa", async () => {
+    const { h, ids } = await setup([
+      { description: "PIX RECEBIDO", cents: 100_000, direction: "credit" },
+      { description: "PAPELARIA", cents: 5_000, direction: "debit" },
+    ]);
+    const income = await app.inject({ method: "PATCH", url: `/transactions/${ids[0]}/tax`, headers: h, payload: { taxableIncome: "confirmed", incomeSource: "company" } });
+    expect(income.json()).toMatchObject({ taxableIncome: "confirmed", incomeSource: "company" });
+    const book = await app.inject({ method: "PATCH", url: `/transactions/${ids[1]}/tax`, headers: h, payload: { deductibleType: "business" } });
+    expect(book.json()).toMatchObject({ deductibleType: "business" });
+    const wrong = await app.inject({ method: "PATCH", url: `/transactions/${ids[1]}/tax`, headers: h, payload: { incomeSource: "individual" } });
+    expect(wrong.statusCode).toBe(422);
+  });
+
   it("a sincronização sugere o salário como rendimento, e o usuário confirma", async () => {
     const { user, conn, h } = await setup();
     const pluggy = new FakePluggy();

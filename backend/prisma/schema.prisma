@@ -66,6 +66,28 @@ enum DeductibleType {
   health
   education
   pension
+  /// Despesa do trabalho autônomo, para o livro-caixa.
+  business
+}
+
+/// De quem veio um rendimento de autônomo. Só o recebido de pessoa física
+/// entra no carnê-leão; o de empresa já tem o imposto retido por ela.
+enum IncomeSource {
+  individual
+  company
+}
+
+enum IncomeType {
+  salaried
+  self_employed
+  both
+}
+
+/// Como o autônomo contribui ao INSS (contribuinte individual).
+enum InssPlan {
+  standard
+  simplified
+  none
 }
 
 // ---------- 3.1 Usuário ----------
@@ -225,6 +247,7 @@ model Transaction {
   isCardBillPayment   Boolean           @default(false) @map("is_card_bill_payment")
   taxableIncome       TaxableIncome     @default(no) @map("taxable_income")
   deductibleType      DeductibleType?   @map("deductible_type")
+  incomeSource        IncomeSource?     @map("income_source")
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 
@@ -281,6 +304,8 @@ model TaxProfile {
   grossMonthlySalaryCents BigInt   @map("gross_monthly_salary_cents")
   withheldMonthlyCents    BigInt?  @map("withheld_monthly_cents")
   dependentsCount         Int      @default(0) @map("dependents_count") @db.SmallInt
+  incomeType              IncomeType @default(salaried) @map("income_type")
+  inssPlan                InssPlan   @default(standard) @map("inss_plan")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

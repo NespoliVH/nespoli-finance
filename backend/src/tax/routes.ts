@@ -5,15 +5,16 @@ import type { PrismaClient } from "../db.js";
 import { makeRequireUser, type Authenticate } from "../http/auth.js";
 import { isSalaryLike } from "../rules/income.js";
 import type { Cents } from "../rules/money.js";
+import { carneLeaoMonths, hasSelfEmployment, projectSelfEmployedYear, type SelfEmployedMonthInput } from "../rules/selfEmployed.js";
 import { estimateIncomeTax, monthlyReserve, monthsUntilDeadline, type TaxYearConfig } from "../rules/tax.js";
 import { brazilDate } from "../pluggy/mapping.js";
 import { spendingWhere } from "../transactions/spending.js";
 
 // Estimativa de IR (RF25 a RF27, RN05, RN06).
 //
-// O cálculo em si é a função pura do módulo 2 (rules/tax.ts). Aqui o backend
-// junta as entradas dela: o perfil fiscal, os rendimentos que o usuário
-// confirmou e as despesas que ele marcou como dedutíveis.
+// O cálculo em si são funções puras (rules/tax.ts e rules/selfEmployed.ts).
+// Aqui o backend junta as entradas delas: o perfil fiscal, os rendimentos que
+// o usuário confirmou e as despesas que ele marcou como dedutíveis.
 
 export interface TaxDeps {
   prisma: PrismaClient;
@@ -32,6 +33,9 @@ const profileBody = z.object({
   grossMonthlySalaryCents: z.number().int().min(0).max(MAX_CENTS),
   withheldMonthlyCents: z.number().int().min(0).max(MAX_CENTS).nullable().default(null),
   dependentsCount: z.number().int().min(0).max(20).default(0),
+  // Assalariado, autônomo ou os dois (seção 4.8.1). Perfis antigos ficam como assalariado.
+  incomeType: z.enum(["salaried", "self_employed", "both"]).default("salaried"),
+  inssPlan: z.enum(["standard", "simplified", "none"]).default("standard"),
 });
 
 const idParams = z.object({ id: z.uuid() });
@@ -39,10 +43,14 @@ const markBody = z
   .object({
     // RF25: confirmar ou recusar a sugestão de rendimento.
     taxableIncome: z.enum(["confirmed", "no"]).optional(),
-    // RF26: marcar ou desmarcar despesa dedutível.
-    deductibleType: z.enum(["health", "education", "pension"]).nullable().optional(),
+    // Autônomo: quem pagou. Pessoa física vai para o carnê-leão.
+    incomeSource: z.enum(["individual", "company"]).nullable().optional(),
+    // RF26: marcar ou desmarcar despesa dedutível; "business" é livro-caixa.
+    deductibleType: z.enum(["health", "education", "pension", "business"]).nullable().optional(),
   })
-  .refine((b) => b.taxableIncome !== undefined || b.deductibleType !== undefined, { message: "nada para mudar" });
+  .refine((b) => b.taxableIncome !== undefined || b.deductibleType !== undefined || b.incomeSource !== undefined, {
+    message: "nada para mudar",
+  });
 
 /** A tabela do ano só vale como oficial quando todos os blocos foram conferidos (RN06). */
 function isVerified(config: TaxYearConfig): boolean {
@@ -70,6 +78,8 @@ export function registerTaxRoutes(app: FastifyInstance, deps: TaxDeps): void {
       grossMonthlySalaryCents: Number(p.grossMonthlySalaryCents),
       withheldMonthlyCents: p.withheldMonthlyCents === null ? null : Number(p.withheldMonthlyCents),
       dependentsCount: p.dependentsCount,
+      incomeType: p.incomeType,
+      inssPlan: p.inssPlan,
     };
   });
 
@@ -82,6 +92,8 @@ export function registerTaxRoutes(app: FastifyInstance, deps: TaxDeps): void {
       grossMonthlySalaryCents: BigInt(body.data.grossMonthlySalaryCents),
       withheldMonthlyCents: body.data.withheldMonthlyCents === null ? null : BigInt(body.data.withheldMonthlyCents),
       dependentsCount: body.data.dependentsCount,
+      incomeType: body.data.incomeType,
+      inssPlan: body.data.inssPlan,
     };
     await prisma.taxProfile.upsert({ where: { userId }, create: { userId, ...data }, update: data });
     return body.data;
@@ -99,8 +111,10 @@ export function registerTaxRoutes(app: FastifyInstance, deps: TaxDeps): void {
 
     const tx = await prisma.transaction.findFirst({ where: { id: params.data.id, userId } });
     if (!tx) return reply.code(404).send({ error: "not_found" });
-    const { taxableIncome, deductibleType } = body.data;
-    if (taxableIncome !== undefined && tx.direction !== "credit") return reply.code(422).send({ error: "not_income" });
+    const { taxableIncome, deductibleType, incomeSource } = body.data;
+    if ((taxableIncome !== undefined || incomeSource !== undefined) && tx.direction !== "credit") {
+      return reply.code(422).send({ error: "not_income" });
+    }
     if (deductibleType !== undefined && (tx.direction !== "debit" || tx.isInternalTransfer || tx.isCardBillPayment)) {
       return reply.code(422).send({ error: "not_spending" });
     }
@@ -109,9 +123,15 @@ export function registerTaxRoutes(app: FastifyInstance, deps: TaxDeps): void {
       data: {
         ...(taxableIncome !== undefined ? { taxableIncome } : {}),
         ...(deductibleType !== undefined ? { deductibleType } : {}),
+        ...(incomeSource !== undefined ? { incomeSource } : {}),
       },
     });
-    return { id: updated.id, taxableIncome: updated.taxableIncome, deductibleType: updated.deductibleType };
+    return {
+      id: updated.id,
+      taxableIncome: updated.taxableIncome,
+      deductibleType: updated.deductibleType,
+      incomeSource: updated.incomeSource,
+    };
   });
 
   // Entradas sugeridas como rendimento que esperam a confirmação do usuário (RF25).
@@ -155,21 +175,55 @@ export function registerTaxRoutes(app: FastifyInstance, deps: TaxDeps): void {
     const [income, deductible] = await Promise.all([
       prisma.transaction.findMany({
         where: { userId, date: yearRange, direction: "credit", taxableIncome: "confirmed", isInternalTransfer: false },
-        select: { amountCents: true, description: true, direction: true, pluggyCategory: true },
+        select: { amountCents: true, description: true, direction: true, pluggyCategory: true, date: true, incomeSource: true },
       }),
       prisma.transaction.findMany({
         where: { userId, date: yearRange, ...spendingWhere, deductibleType: { not: null } },
-        select: { amountCents: true, deductibleType: true },
+        select: { amountCents: true, deductibleType: true, date: true },
       }),
     ]);
 
     // RN05: os rendimentos confirmados até agora são projetados para o ano
     // pela média mensal. O salário fica de fora porque já vem bruto do perfil.
-    const otherSoFar = sumCents(income.filter((t) => !isSalaryLike(t)));
+    const nonSalary = income.filter((t) => !isSalaryLike(t));
+    const selfEmployed = hasSelfEmployment(profile.incomeType);
     const monthsElapsed = today.getUTCMonth() + 1;
+    // Para o autônomo, as entradas confirmadas que não são salário são o
+    // trabalho dele (carnê-leão e ajuste); para o assalariado, "outros rendimentos".
+    const otherSoFar = selfEmployed ? 0 : sumCents(nonSalary);
     const otherProjected = Math.round((otherSoFar / monthsElapsed) * 12);
     // As despesas dedutíveis entram como estão: projetar gasto com médico seria chute.
     const byType = (type: string) => sumCents(deductible.filter((t) => t.deductibleType === type));
+
+    const seProfile = {
+      incomeType: profile.incomeType,
+      inssPlan: profile.inssPlan,
+      grossMonthlySalaryCents: Number(profile.grossMonthlySalaryCents),
+      dependentsCount: profile.dependentsCount,
+    };
+    let carneLeao = null;
+    let selfEmployedAnnual;
+    if (selfEmployed) {
+      const monthKey = (d: Date) => d.toISOString().slice(0, 7);
+      const months: SelfEmployedMonthInput[] = Array.from({ length: monthsElapsed }, (_, i) => {
+        const key = `${year}-${String(i + 1).padStart(2, "0")}`;
+        const inMonth = nonSalary.filter((t) => monthKey(t.date) === key);
+        return {
+          month: key,
+          fromIndividualsCents: sumCents(inMonth.filter((t) => t.incomeSource !== "company")),
+          fromCompaniesCents: sumCents(inMonth.filter((t) => t.incomeSource === "company")),
+          bookExpensesCents: sumCents(deductible.filter((t) => t.deductibleType === "business" && monthKey(t.date) === key)),
+        };
+      });
+      const computed = carneLeaoMonths(months, seProfile, config);
+      selfEmployedAnnual = projectSelfEmployedYear(computed, monthsElapsed);
+      carneLeao = {
+        darfCode: config.carneLeao.darfCode,
+        months: computed,
+        totalSoFarCents: computed.reduce((acc, m) => acc + m.taxCents, 0),
+        projectedAnnualCents: selfEmployedAnnual.carneLeaoPaidCents,
+      };
+    }
 
     const estimate = estimateIncomeTax(
       {
@@ -180,12 +234,14 @@ export function registerTaxRoutes(app: FastifyInstance, deps: TaxDeps): void {
         healthExpensesCents: byType("health"),
         educationExpensesCents: byType("education"),
         pensionContributionsCents: byType("pension"),
+        selfEmployed: selfEmployedAnnual,
       },
       config,
     );
 
     return {
       year,
+      incomeType: profile.incomeType,
       disclaimer: TAX_DISCLAIMER,
       tableVerifiedOfficial: isVerified(config),
       estimate,
@@ -198,7 +254,9 @@ export function registerTaxRoutes(app: FastifyInstance, deps: TaxDeps): void {
         healthCents: byType("health"),
         educationCents: byType("education"),
         pensionCents: byType("pension"),
+        bookExpensesCents: byType("business"),
       },
+      carneLeao,
     };
   });
 }

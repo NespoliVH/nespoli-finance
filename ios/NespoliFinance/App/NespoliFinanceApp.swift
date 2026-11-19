@@ -40,7 +40,8 @@ struct MainTabsView: View {
             SummaryView(model: SummaryViewModel(repository: environment.repository), isDemo: environment.isDemo)
                 .tabItem { Label("Resumo", systemImage: "chart.pie.fill") }
             NavigationStack {
-                TransactionsView(model: TransactionsViewModel(repository: environment.repository, month: DemoFinanceRepository.currentMonth()))
+                TransactionsView(model: TransactionsViewModel(repository: environment.repository, month: DemoFinanceRepository.currentMonth(),
+                                                           taxRepository: environment.repository))
             }
             .tabItem { Label("Transações", systemImage: "list.bullet") }
             AlertsView(model: AlertsViewModel(repository: environment.repository))

@@ -68,6 +68,7 @@ function serializeTransaction(t: TransactionWithAccount) {
     categorySource: t.categorySource,
     taxableIncome: t.taxableIncome,
     deductibleType: t.deductibleType,
+    incomeSource: t.incomeSource,
     account: { id: t.account.id, name: t.account.name, type: t.account.type, numberLast4: t.account.numberLast4 },
   };
 }

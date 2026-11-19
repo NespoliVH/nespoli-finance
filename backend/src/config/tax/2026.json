@@ -103,5 +103,35 @@
     "pensionLimitBasisPoints": 1200,
     "simplifiedRateBasisPoints": 2000,
     "simplifiedCapAnnual": 17640.0
+  },
+  "monthlyReducer": {
+    "source": "Lei 15.270/2025, tabela de redução mensal (art. 3º-A da Lei 9.250/1995). Receita Federal, página 'Tributação de 2026' (gov.br/receitafederal, tabelas/2026, atualizada em 27/04/2026), conferida em 19/11/2026. A redução usa os rendimentos tributáveis do mês, não a base de cálculo (exemplos da Receita, página 'Exemplos de aplicação da Lei 15.270/2025').",
+    "verifiedOfficial": true,
+    "fullReductionUpTo": 5000.0,
+    "maxReduction": 312.89,
+    "phaseOutUpTo": 7350.0,
+    "phaseOutConstant": 978.62,
+    "phaseOutFactor": 0.133145
+  },
+  "monthlyDeductions": {
+    "source": "Dedução mensal por dependente e limite mensal do desconto simplificado: Receita Federal, página 'Tributação de 2026' (gov.br/receitafederal, tabelas/2026, atualizada em 27/04/2026), conferida em 19/11/2026. Deduções admitidas no carnê-leão (previdência oficial, dependentes, pensão alimentícia e livro-caixa): Receita Federal, página 'Deduções possíveis no carnê-leão', conferida em 19/11/2026. O uso do desconto simplificado no carnê-leão, no lugar das deduções, segue materiais de contabilidade; a página da Receita não o menciona.",
+    "verifiedOfficial": true,
+    "perDependentMonthly": 189.59,
+    "simplifiedMonthly": 607.2
+  },
+  "carneLeao": {
+    "source": "Receita Federal, páginas 'Carnê-leão', 'Rendimentos sujeitos ao carnê-leão' e 'Como pagar o carnê-leão' (gov.br/receitafederal), conferidas em 19/11/2026: tabela mensal sobre o total recebido de pessoas físicas no mês, menos as deduções; vencimento no último dia útil do mês seguinte; DARF código 0190; abaixo de R$ 10,00 o valor passa para o mês seguinte.",
+    "verifiedOfficial": true,
+    "darfCode": "0190",
+    "minimumDarf": 10.0
+  },
+  "inssSelfEmployed": {
+    "source": "Portaria Interministerial MPS/MF nº 13/2026, conforme a página 'Tabela de contribuição mensal' do INSS (gov.br/inss), conferida em 19/11/2026: contribuinte individual paga 20% sobre o salário de contribuição entre o salário mínimo (R$ 1.621,00) e o teto (R$ 8.475,55), ou 11% sobre o mínimo no plano simplificado. A retenção de 11% pela empresa que contrata o autônomo é da Lei 10.666/2003, art. 4º.",
+    "verifiedOfficial": true,
+    "minimumWage": 1621.0,
+    "ceiling": 8475.55,
+    "standardRateBasisPoints": 2000,
+    "simplifiedRateBasisPoints": 1100,
+    "companyWithholdingRateBasisPoints": 1100
   }
 }
