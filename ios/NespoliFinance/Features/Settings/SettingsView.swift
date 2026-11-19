@@ -4,9 +4,12 @@ import SwiftUI
 struct SettingsView: View {
     @State var model: SettingsViewModel
     let connections: ConnectionsViewModel
+    var onSignOut: () -> Void = {}
+    var onAccountDeleted: () -> Void = {}
     /// Preferência do aparelho, não é segredo: pode ficar no UserDefaults.
     /// Vai para o backend junto com o token de notificação, quando houver push.
     @AppStorage("showAmountsInPush") private var showAmountsInPush = false
+    @AppStorage(BiometricLock.preferenceKey) private var requireBiometrics = true
     @State private var confirmingDelete = false
 
     var body: some View {
@@ -51,6 +54,15 @@ struct SettingsView: View {
                 } footer: {
                     Text("A notificação aparece na tela bloqueada, onde outras pessoas podem ler. Desligado, ela só diz a categoria.")
                 }
+                if !model.isDemo {
+                    Section {
+                        Toggle("Pedir Face ID ao abrir", isOn: $requireBiometrics)
+                    } header: {
+                        Text("Segurança")
+                    } footer: {
+                        Text("Se o Face ID falhar, o código do iPhone também desbloqueia o app.")
+                    }
+                }
                 Section("Privacidade") {
                     NavigationLink("Consentimentos") { ConsentsView(consents: model.consents) }
                     NavigationLink("Política de privacidade") { PrivacyPolicyView() }
@@ -61,12 +73,23 @@ struct SettingsView: View {
                 } footer: {
                     Text("Apaga suas conexões no serviço do banco e todos os seus dados no app. Não dá para desfazer.")
                 }
+                Section {
+                    Button(model.isDemo ? "Sair do modo demonstração" : "Sair", action: onSignOut)
+                } footer: {
+                    if !model.isDemo {
+                        Text("Encerra a sessão neste iPhone. Seus dados continuam guardados para quando você entrar de novo.")
+                    }
+                }
                 Section("Sobre") {
                     LabeledContent("Versão", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-")
                 }
             }
             .navigationTitle("Ajustes")
             .task { await model.load() }
+            .onChange(of: model.deleted) { _, deleted in
+                // Com conta real, a sessão acabou junto com a conta: volta para a entrada.
+                if deleted && !model.isDemo { onAccountDeleted() }
+            }
             .sheet(isPresented: $confirmingDelete) {
                 DeleteAccountView { typed in
                     Task { await model.deleteAccount(typed: typed) }

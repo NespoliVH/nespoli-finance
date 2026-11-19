@@ -10,11 +10,17 @@ final class ScreenshotTests: XCTestCase {
     override func setUp() {
         continueAfterFailure = true
         app = XCUIApplication()
-        app.launchArguments += ["-AppleLanguages", "(pt-BR)", "-AppleLocale", "pt_BR"]
+        // -demoMode NO: sempre começa na tela de entrada, mesmo se a última execução escolheu a demonstração.
+        app.launchArguments += ["-AppleLanguages", "(pt-BR)", "-AppleLocale", "pt_BR", "-demoMode", "NO"]
         app.launch()
     }
 
     func testCapturaTodasAsTelas() {
+        if wait(app.buttons["Ver demonstração"]) {
+            sleep(1)
+            shot("00-entrar")
+            app.buttons["Ver demonstração"].tap()
+        }
         wait(app.navigationBars["Resumo"])
         shot("01-resumo")
 
