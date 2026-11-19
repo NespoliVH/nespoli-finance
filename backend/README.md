@@ -68,6 +68,7 @@ npm run typecheck
 | `src/rules/` | Regras de negócio: categorização, alertas e IR (módulo 2) |
 | `src/config/tax/` | Tabelas do IR e do INSS por ano |
 | `src/pluggy/` | Cliente da API do Pluggy e conversão dos dados (módulo 4) |
+| `src/auth/` | Login com a Apple, sessão e tokens (módulo 3) |
 | `src/connections/` | Rotas de conexão bancária, webhook e sincronização (módulo 4) |
 | `src/jobs/` | Fila de tarefas (pg-boss) e trabalhadores |
 | `src/transactions/` | Resumo do mês, lista de transações e correção de categoria (módulo 6) |

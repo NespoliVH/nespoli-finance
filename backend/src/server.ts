@@ -4,6 +4,8 @@ import { buildApp } from "./app.js";
 import { PgBossQueue } from "./jobs/queue.js";
 import { buildHandlers } from "./jobs/workers.js";
 import { nobody } from "./http/auth.js";
+import { appleKeysFromNetwork } from "./auth/apple.js";
+import { sessionAuthenticate } from "./auth/session.js";
 import { keyFromBase64 } from "./lib/crypto.js";
 import { PluggyClient } from "./pluggy/client.js";
 
@@ -30,18 +32,25 @@ const pluggy =
 const queue = await PgBossQueue.start(env.DATABASE_URL);
 if (pluggy) await queue.work(buildHandlers({ prisma, pluggy: pluggy.api, fieldKey, push: null }));
 
+const signingKey = env.SESSION_SIGNING_KEY ? keyFromBase64(env.SESSION_SIGNING_KEY) : null;
+const auth = signingKey
+  ? { blindKey, signingKey, appleAudience: env.APPLE_BUNDLE_ID, appleKeys: appleKeysFromNetwork() }
+  : undefined;
+
 const app = buildApp({
   prisma,
+  auth,
   connections: {
     queue,
     fieldKey,
     blindKey,
     pluggy,
   },
-  // O login com a Apple chega no módulo 3. Até lá nenhuma requisição é
+  // Sem a chave de sessão o login fica desligado: nenhuma requisição é
   // reconhecida como de um usuário, e as rotas de usuário respondem 401.
-  authenticate: nobody,
+  authenticate: signingKey ? sessionAuthenticate({ prisma, signingKey }) : nobody,
 });
+if (!signingKey) app.log.warn("SESSION_SIGNING_KEY ausente: login desligado, rotas de usuário respondem 401");
 if (!pluggy) app.log.warn("Pluggy não configurado: as rotas de conexão respondem 503");
 
 const shutdown = async () => {

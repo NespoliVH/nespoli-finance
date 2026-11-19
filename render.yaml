@@ -25,6 +25,9 @@ services:
         generateValue: true
       - key: BLIND_INDEX_KEY
         generateValue: true
+      # Assina os tokens de sessão do login com a Apple.
+      - key: SESSION_SIGNING_KEY
+        generateValue: true
       # Preenchidas no painel. O segredo do webhook vai no endereço, por isso
       # deve ser só letras e números (gere com: openssl rand -hex 32).
       - key: PLUGGY_CLIENT_ID

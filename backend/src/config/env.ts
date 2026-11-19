@@ -19,6 +19,11 @@ const schema = z.object({
   FIELD_ENCRYPTION_KEY: base64Key32,
   // Chave separada para o índice cego (HMAC-SHA256), seção 4.3 da modelagem.
   BLIND_INDEX_KEY: base64Key32,
+  // Chave que assina os tokens de acesso da sessão (módulo 3). Sem ela, o
+  // login fica desligado e as rotas de usuário respondem 401.
+  SESSION_SIGNING_KEY: base64Key32.optional(),
+  // Bundle id do app: o token da Apple precisa ter sido emitido para ele.
+  APPLE_BUNDLE_ID: z.string().min(1).default("br.com.nespoli.finance"),
 
   // Pluggy (módulo 4). Opcionais para o servidor subir sem elas durante o
   // desenvolvimento; sem as três, as rotas de conexão respondem 503.
