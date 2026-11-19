@@ -49,6 +49,7 @@ struct FailingRepository: AppRepository {
     func taxProfile() async throws -> TaxProfile? { throw error }
     func saveTaxProfile(_ profile: TaxProfile) async throws { throw error }
     func taxEstimate() async throws -> TaxEstimateResponse { throw error }
+    func markTax(transactionID: String, _ mark: TaxMark) async throws { throw error }
     func me() async throws -> Me { throw error }
     func consents() async throws -> [ConsentRecord] { throw error }
     func deleteAccount() async throws { throw error }

@@ -55,6 +55,35 @@ final class TaxViewModel {
         return "O imposto retido deve cobrir o devido."
     }
 
+    /// Próximo DARF do carnê-leão a vencer a partir de hoje ("2026-11-19").
+    nonisolated static func nextCarneLeao(_ c: CarneLeao, today: String) -> CarneLeaoMonth? {
+        c.months.filter { $0.payableCents > 0 && ($0.dueDate ?? "") >= today }.min { ($0.dueDate ?? "") < ($1.dueDate ?? "") }
+    }
+
+    /// "2026-03" → "março de 2026".
+    nonisolated static func monthName(_ month: String) -> String {
+        let names = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+        let parts = month.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 2, (1...12).contains(parts[1]) else { return month }
+        return "\(names[parts[1] - 1]) de \(parts[0])"
+    }
+
+    /// "2026-04-30" → "30/04".
+    nonisolated static func shortDay(_ date: String) -> String {
+        let p = date.split(separator: "-")
+        guard p.count == 3 else { return date }
+        return "\(p[2])/\(p[1])"
+    }
+
+    /// Hoje no formato do backend, no fuso de Brasília.
+    nonisolated static func todayString(_ now: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = TimeZone(identifier: "America/Sao_Paulo")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: now)
+    }
+
     /// Converte o texto digitado ("7.500,00", "7500", "7500,5") em centavos.
     nonisolated static func parseReais(_ text: String) -> Cents? {
         let cleaned = text.replacingOccurrences(of: "R$", with: "").replacingOccurrences(of: " ", with: "")

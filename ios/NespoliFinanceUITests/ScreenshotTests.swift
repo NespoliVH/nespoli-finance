@@ -48,7 +48,20 @@ final class ScreenshotTests: XCTestCase {
         if tapIfExists(app.buttons["Editar perfil"]) {
             wait(app.navigationBars["Perfil fiscal"])
             shot("06-perfil-fiscal")
-            tapIfExists(app.buttons["Cancelar"])
+            // Troca para autônomo para mostrar o carnê-leão.
+            if tapIfExists(app.buttons["Autônomo"]) {
+                sleep(1)
+                shot("06a-perfil-fiscal-autonomo")
+                tapIfExists(app.buttons["Salvar"])
+                wait(app.navigationBars["Imposto de Renda"])
+                sleep(1)
+                shot("06b-ir-autonomo")
+                app.swipeUp()
+                sleep(1)
+                shot("06c-carne-leao")
+            } else {
+                tapIfExists(app.buttons["Cancelar"])
+            }
         }
 
         tab("Ajustes")

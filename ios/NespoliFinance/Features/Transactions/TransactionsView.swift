@@ -4,6 +4,7 @@ import SwiftUI
 struct TransactionsView: View {
     @State var model: TransactionsViewModel
     @State private var editing: Transaction?
+    @State private var markingTax: Transaction?
 
     var body: some View {
         List {
@@ -32,9 +33,16 @@ struct TransactionsView: View {
                     Text("Nenhuma transação neste mês.").foregroundStyle(.secondary)
                 }
                 ForEach(model.items) { tx in
-                    Button { if tx.isSpending { editing = tx } } label: { TransactionRow(tx: tx) }
+                    Button {
+                        if tx.isSpending { editing = tx } else if tx.direction == .credit && model.canMarkTax { markingTax = tx }
+                    } label: { TransactionRow(tx: tx) }
                         .buttonStyle(.plain)
-                        .accessibilityHint(tx.isSpending ? "Toque para trocar a categoria" : "")
+                        .accessibilityHint(tx.isSpending ? "Toque para trocar a categoria" : (tx.direction == .credit && model.canMarkTax ? "Toque para marcar como rendimento" : ""))
+                        .swipeActions(edge: .trailing) {
+                            if model.canMarkTax && (tx.isSpending || tx.direction == .credit) {
+                                Button("IR") { markingTax = tx }.tint(.indigo)
+                            }
+                        }
                 }
                 if model.canLoadMore {
                     ProgressView().frame(maxWidth: .infinity).task { await model.loadMore() }
@@ -45,6 +53,11 @@ struct TransactionsView: View {
         .refreshable { await model.reload() }
         .task { await model.reload() }
         .onChange(of: model.kind) { Task { await model.reload() } }
+        .sheet(item: $markingTax) { tx in
+            TaxMarkView(transaction: tx) { mark in
+                Task { await model.markTax(tx, mark) }
+            }
+        }
         .sheet(item: $editing) { tx in
             CategoryCorrectionView(transaction: tx) { category, future, past in
                 Task { await model.correct(tx, to: category, applyToFuture: future, includePast: past) }
@@ -68,6 +81,9 @@ struct TransactionRow: View {
                     Text("·")
                     Text(tx.categoryId?.name ?? (tx.direction == .credit ? "Entrada" : "Não é gasto"))
                     if tx.isManual { Image(systemName: "pencil").accessibilityLabel("corrigida por você") }
+                    if tx.isConfirmedIncome || tx.deductibleType != nil {
+                        Image(systemName: "doc.text").accessibilityLabel("marcada para o Imposto de Renda")
+                    }
                 }
                 .font(.caption).foregroundStyle(.secondary)
             }

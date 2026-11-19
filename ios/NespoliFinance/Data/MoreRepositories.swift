@@ -13,6 +13,8 @@ protocol TaxRepository {
     func taxProfile() async throws -> TaxProfile?
     func saveTaxProfile(_ profile: TaxProfile) async throws
     func taxEstimate() async throws -> TaxEstimateResponse
+    /// Rendimento confirmado, de quem veio e despesa dedutível (RF25, RF26, livro-caixa).
+    func markTax(transactionID: String, _ mark: TaxMark) async throws
 }
 
 /// Conta e privacidade (RF04, RF05).
@@ -56,6 +58,10 @@ extension LiveFinanceRepository: AlertsRepository, TaxRepository, AccountReposit
 
     func taxEstimate() async throws -> TaxEstimateResponse {
         try await api.get("tax/estimate")
+    }
+
+    func markTax(transactionID: String, _ mark: TaxMark) async throws {
+        try await api.sendNoContent("PATCH", "transactions/\(transactionID)/tax", body: mark)
     }
 
     func me() async throws -> Me { try await api.get("me") }

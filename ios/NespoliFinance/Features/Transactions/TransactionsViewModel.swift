@@ -16,9 +16,12 @@ final class TransactionsViewModel {
     var kind: TransactionKind = .all
     var category: CategoryID?
     private let repository: FinanceRepository
+    /// Para as marcações do IR. Sem ele, a lista só mostra e corrige categorias.
+    private let taxRepository: TaxRepository?
 
-    init(repository: FinanceRepository, month: String, category: CategoryID? = nil) {
+    init(repository: FinanceRepository, month: String, category: CategoryID? = nil, taxRepository: TaxRepository? = nil) {
         self.repository = repository
+        self.taxRepository = taxRepository
         self.month = month
         self.category = category
         if category != nil { kind = .spending }
@@ -59,6 +62,22 @@ final class TransactionsViewModel {
                 CategoryCorrection(categoryId: category, applyToFuture: applyToFuture, includePast: applyToFuture && includePast)
             )
             notice = Self.notice(for: result)
+            await reload()
+        } catch let error as APIError {
+            errorMessage = error.message
+        } catch {
+            errorMessage = APIError.invalidResponse.message
+        }
+    }
+
+    var canMarkTax: Bool { taxRepository != nil }
+
+    /// Marca a transação para o IR (rendimento, de quem veio, despesa dedutível) e recarrega.
+    func markTax(_ tx: Transaction, _ mark: TaxMark) async {
+        guard let taxRepository else { return }
+        do {
+            try await taxRepository.markTax(transactionID: tx.id, mark)
+            notice = "Marcação do Imposto de Renda salva."
             await reload()
         } catch let error as APIError {
             errorMessage = error.message

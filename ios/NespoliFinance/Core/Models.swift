@@ -72,10 +72,32 @@ struct Transaction: Codable, Identifiable, Equatable {
     let categoryId: CategoryID?
     let categorySource: String?
     let account: AccountRef
+    /// Marcações do IR (RF25, RF26). Opcionais: o modo demonstração e respostas antigas não têm.
+    var taxableIncome: String? = nil // "no", "suggested" ou "confirmed"
+    var deductibleType: String? = nil // "health", "education", "pension" ou "business" (livro-caixa)
+    var incomeSource: String? = nil // "individual" ou "company"
 
     enum Direction: String, Codable { case debit, credit }
 
     var isManual: Bool { categorySource == "manual" }
+    var isConfirmedIncome: Bool { taxableIncome == "confirmed" }
+}
+
+/// O que mudar nas marcações do IR de uma transação. Campo ausente fica como
+/// está; deductibleType ou incomeSource com valor nulo apaga a marcação.
+struct TaxMark: Encodable, Equatable {
+    var taxableIncome: String?
+    var incomeSource: String??
+    var deductibleType: String??
+
+    private enum CodingKeys: String, CodingKey { case taxableIncome, incomeSource, deductibleType }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(taxableIncome, forKey: .taxableIncome)
+        if case .some(let value) = incomeSource { try c.encode(value, forKey: .incomeSource) }
+        if case .some(let value) = deductibleType { try c.encode(value, forKey: .deductibleType) }
+    }
 }
 
 struct TransactionPage: Codable, Equatable {
@@ -135,10 +157,63 @@ struct AlertList: Codable, Equatable {
 
 // MARK: - IR (módulo 8)
 
+/// Como a pessoa recebe (seção 4.8.1): define se há carnê-leão.
+enum IncomeType: String, Codable, CaseIterable, Identifiable {
+    case salaried
+    case selfEmployed = "self_employed"
+    case both
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .salaried: return "Assalariado"
+        case .selfEmployed: return "Autônomo"
+        case .both: return "Os dois"
+        }
+    }
+    var hasSalary: Bool { self != .selfEmployed }
+    var hasSelfEmployment: Bool { self != .salaried }
+}
+
+/// Como o autônomo contribui ao INSS (contribuinte individual).
+enum InssPlan: String, Codable, CaseIterable, Identifiable {
+    case standard, simplified, none
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .standard: return "20% sobre o que recebo"
+        case .simplified: return "11% do salário mínimo (plano simplificado)"
+        case .none: return "Não contribuo"
+        }
+    }
+}
+
 struct TaxProfile: Codable, Equatable {
     var grossMonthlySalaryCents: Cents
     var withheldMonthlyCents: Cents?
     var dependentsCount: Int
+    var incomeType: IncomeType = .salaried
+    var inssPlan: InssPlan = .standard
+
+    init(grossMonthlySalaryCents: Cents, withheldMonthlyCents: Cents?, dependentsCount: Int,
+         incomeType: IncomeType = .salaried, inssPlan: InssPlan = .standard) {
+        self.grossMonthlySalaryCents = grossMonthlySalaryCents
+        self.withheldMonthlyCents = withheldMonthlyCents
+        self.dependentsCount = dependentsCount
+        self.incomeType = incomeType
+        self.inssPlan = inssPlan
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        grossMonthlySalaryCents = try c.decode(Cents.self, forKey: .grossMonthlySalaryCents)
+        withheldMonthlyCents = try c.decodeIfPresent(Cents.self, forKey: .withheldMonthlyCents)
+        dependentsCount = try c.decode(Int.self, forKey: .dependentsCount)
+        // Perfis gravados antes do autônomo não têm esses campos.
+        incomeType = try c.decodeIfPresent(IncomeType.self, forKey: .incomeType) ?? .salaried
+        inssPlan = try c.decodeIfPresent(InssPlan.self, forKey: .inssPlan) ?? .standard
+    }
 }
 
 struct TaxStep: Codable, Equatable, Identifiable {
@@ -157,6 +232,7 @@ struct TaxEstimate: Codable, Equatable {
     let regime: String // "complete" ou "simplified"
     let taxDueCents: Cents
     let withheldCents: Cents
+    var carneLeaoPaidCents: Cents? = nil
     let differenceCents: Cents
     let steps: [TaxStep]
     let alternative: Alternative
@@ -171,6 +247,34 @@ struct TaxEstimateResponse: Codable, Equatable {
     let estimate: TaxEstimate
     let monthlyReserveCents: Cents
     let monthsUntilDeadline: Int
+    var incomeType: IncomeType? = nil
+    var carneLeao: CarneLeao? = nil
+}
+
+/// Carnê-leão do autônomo: o imposto de cada mês sobre o que recebeu de pessoas físicas.
+struct CarneLeao: Codable, Equatable {
+    let darfCode: String
+    let months: [CarneLeaoMonth]
+    let totalSoFarCents: Cents
+    let projectedAnnualCents: Cents
+}
+
+struct CarneLeaoMonth: Codable, Equatable, Identifiable {
+    let month: String // "2026-03"
+    let fromIndividualsCents: Cents
+    let fromCompaniesCents: Cents
+    let inssPaidCents: Cents
+    let inssWithheldCents: Cents
+    let bookDeductionCents: Cents
+    let deductionKind: String // "legal" ou "simplified"
+    let deductionCents: Cents
+    let baseCents: Cents
+    let taxCents: Cents
+    let payableCents: Cents
+    let dueDate: String? // "2026-04-30"
+
+    var id: String { month }
+    var hasActivity: Bool { fromIndividualsCents > 0 || fromCompaniesCents > 0 || payableCents > 0 }
 }
 
 // MARK: - Conta e privacidade (módulo 9)
