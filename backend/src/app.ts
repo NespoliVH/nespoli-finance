@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { registerAccountRoutes } from "./account/routes.js";
+import { registerAuthRoutes, type AuthDeps } from "./auth/routes.js";
 import { registerAlertRoutes } from "./alerts/routes.js";
 import { registerConnectionRoutes, type ConnectionDeps } from "./connections/routes.js";
 import type { PrismaClient } from "./db.js";
@@ -15,6 +16,8 @@ export interface AppDeps {
   authenticate?: Authenticate;
   now?: () => Date;
   connections?: Omit<ConnectionDeps, "prisma" | "authenticate" | "now">;
+  /** Login com a Apple (módulo 3). Sem isso, as rotas /auth não existem. */
+  auth?: Omit<AuthDeps, "prisma" | "now">;
 }
 
 /** Tira o segredo do webhook da URL antes de ela ir para o log. */
@@ -24,7 +27,7 @@ export function redactUrl(url: string): string {
 
 // Monta a aplicação sem iniciar o servidor. Separar "montar" de "iniciar"
 // permite que os testes criem a aplicação e façam requisições sem abrir porta.
-export function buildApp({ prisma, logger = true, authenticate = nobody, now, connections }: AppDeps): FastifyInstance {
+export function buildApp({ prisma, logger = true, authenticate = nobody, now, connections, auth }: AppDeps): FastifyInstance {
   const app = Fastify({
     logger: logger
       ? {
@@ -36,6 +39,8 @@ export function buildApp({ prisma, logger = true, authenticate = nobody, now, co
               "*.token",
               "*.refreshToken",
               "*.identityToken",
+              "*.accessToken",
+              "*.rawNonce",
               "*.accountNumber",
             ],
             censor: "[removido]",
@@ -60,6 +65,7 @@ export function buildApp({ prisma, logger = true, authenticate = nobody, now, co
     }
   });
 
+  if (auth) registerAuthRoutes(app, { prisma, now, ...auth });
   if (connections) {
     registerConnectionRoutes(app, { prisma, authenticate, now, ...connections });
     registerAccountRoutes(app, { prisma, authenticate, ...connections });

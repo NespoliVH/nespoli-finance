@@ -89,4 +89,5 @@ function assertKey(key: Buffer): void {
 export const BlindIndexContext = {
   pluggyItem: "pluggy-item",
   consentSubject: "consent-subject",
+  appleUser: "apple-user",
 } as const;
